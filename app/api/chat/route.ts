@@ -102,7 +102,7 @@ The user's detected emotional state right now is: ${emotion}.
 Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.`;
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: systemPrompt,
       });
 

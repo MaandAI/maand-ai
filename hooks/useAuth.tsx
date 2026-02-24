@@ -25,12 +25,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("Firebase User: ", firebaseUser);
       setUser(firebaseUser);
       if (firebaseUser) {
         // Fetch user profile from Firestore to get roles
         const userProfile = await getUserProfile(firebaseUser.uid);
-        console.log("User Profile: ", userProfile);
         setProfile(userProfile);
 
         // Sync token cookie for middleware & server components
