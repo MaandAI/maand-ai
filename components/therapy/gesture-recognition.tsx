@@ -103,6 +103,15 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
       return;
 
     const video = videoRef.current;
+
+    // Check if video dimensions are valid before predicting
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      if (isWebcamEnabled) {
+        animationFrameRef.current = requestAnimationFrame(predictWebcam);
+      }
+      return;
+    }
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 

@@ -200,6 +200,7 @@ export default function TherapyChatPage() {
   };
 
   const handleGestureDetected = (result: GestureResult) => {
+    console.log("Detected Gesture", result);
     // Treat the detected intent like a chat message
     if (result.intent !== "Unknown") {
       toast({
