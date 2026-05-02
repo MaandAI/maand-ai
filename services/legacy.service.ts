@@ -1,4 +1,5 @@
-import { adminDb } from "@/lib/firebase-admin";
+import dbConnect from "@/lib/mongodb";
+import LegacyProfileModel from "@/models/LegacyProfile";
 import { logAuditAction } from "@/services/audit.service";
 import { encryptData, decryptData } from "@/utils/encryption";
 
@@ -25,53 +26,46 @@ export async function createLegacyProfile(
     throw new Error("Explicit consent is required to create a legacy profile.");
   }
 
-  const profileRef = adminDb
-    .collection("users")
-    .doc(userId)
-    .collection("legacy_profiles")
-    .doc();
-  const profileId = profileRef.id;
+  await dbConnect();
 
-  const newProfile: LegacyProfile = {
-    id: profileId,
+  const profile = await LegacyProfileModel.create({
+    userId,
     ...data,
     name: encryptData(data.name),
     personalityTraits: data.personalityTraits.map(encryptData),
     status: "active",
-    createdAt: new Date().toISOString(),
-  };
-
-  await profileRef.set(newProfile);
+  });
 
   await logAuditAction(userId, "CREATE_LEGACY_PROFILE", {
-    profileId,
+    profileId: profile._id.toString(),
     name: data.name,
   });
 
-  return profileId;
+  return profile._id.toString();
 }
 
 export async function getLegacyProfile(
   userId: string,
   profileId: string,
 ): Promise<LegacyProfile | null> {
-  const doc = await adminDb
-    .collection("users")
-    .doc(userId)
-    .collection("legacy_profiles")
-    .doc(profileId)
-    .get();
-  if (!doc.exists) return null;
-
-  const data = doc.data() as LegacyProfile;
+  await dbConnect();
+  const profile = await LegacyProfileModel.findOne({ _id: profileId, userId });
+  
+  if (!profile) return null;
 
   // Decrypt sensitive fields
   return {
-    ...data,
-    name: decryptData(data.name),
-    personalityTraits: data.personalityTraits
-      ? data.personalityTraits.map(decryptData)
+    id: profile._id.toString(),
+    name: decryptData(profile.name),
+    relationship: profile.relationship,
+    personalityTraits: profile.personalityTraits
+      ? profile.personalityTraits.map((t: string) => decryptData(t))
       : [],
+    allowedTopics: profile.allowedTopics,
+    consentGiven: profile.consentGiven,
+    expiresAt: profile.expiresAt?.toISOString() || "",
+    status: profile.status,
+    createdAt: profile.createdAt?.toISOString() || "",
   };
 }
 
@@ -79,14 +73,11 @@ export async function deleteLegacyProfile(
   userId: string,
   profileId: string,
 ): Promise<void> {
-  const profileRef = adminDb
-    .collection("users")
-    .doc(userId)
-    .collection("legacy_profiles")
-    .doc(profileId);
-
-  // Soft delete
-  await profileRef.update({ status: "inactive" });
+  await dbConnect();
+  await LegacyProfileModel.findOneAndUpdate(
+    { _id: profileId, userId },
+    { status: "inactive" }
+  );
 
   await logAuditAction(userId, "DELETE_LEGACY_PROFILE", { profileId });
 }

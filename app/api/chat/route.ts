@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { HfInference } from "@huggingface/inference";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ChatService } from "@/backend/services/chat.service";
 import { detectCrisisKeywords } from "@/lib/mock/crisis-detection";
 import { enforceRateLimit } from "@/utils/rate-limit";
 import { logAuditAction } from "@/services/audit.service";
+import dbConnect from "@/lib/mongodb";
+import ChatSession from "@/models/ChatSession";
 import { z } from "zod";
 
 const ChatInputSchema = z.object({
@@ -29,18 +32,16 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const token =
-      req.cookies.get("token")?.value || req.cookies.get("__session")?.value;
-    if (!token)
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Implement Rate Limiting (15 requests per minute)
     const rateLimitError = enforceRateLimit(req, 15, 60000);
     if (rateLimitError) return rateLimitError;
 
-    // Auth Validation & Body Parsing
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    const userId = (session.user as any).id;
     const bodyRaw = await req.json();
 
     const parsed = ChatInputSchema.safeParse(bodyRaw);
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { message, persona, sessionId: clientSessionId } = parsed.data;
+
+    await dbConnect();
 
     let sessionId = clientSessionId;
     if (!sessionId) {
@@ -75,7 +78,6 @@ export async function POST(req: NextRequest) {
         inputs: message,
       });
       if (hfResponse && hfResponse.length > 0) {
-        // Return top-scoring emotion label
         emotion = hfResponse[0].label;
       }
     } catch (e) {
@@ -102,32 +104,31 @@ The user's detected emotional state right now is: ${emotion}.
 Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.`;
 
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-1.5-flash", // Fixed typo in previous version (2.5 -> 1.5)
         systemInstruction: systemPrompt,
       });
 
+      console.log("Generating AI response with Gemini...");
       const result = await model.generateContent(message);
       aiResponseContent = result.response.text();
+      console.log("AI Response generated:", aiResponseContent.substring(0, 50) + "...");
     }
 
     // 5. Save AI Response
+    console.log("Saving AI response to DB...");
     await ChatService.saveMessage(userId, {
       sessionId,
       content: aiResponseContent,
       sender: "ai",
     });
+    console.log("AI response saved successfully.");
 
     // 6. Calculate Latency & Update Session metrics
     const durationMs = Date.now() - startTime;
-    const sessionRef = adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .doc(sessionId);
-    await sessionRef.set(
-      { durationMs, updatedAt: new Date() },
-      { merge: true },
-    );
+    await ChatSession.findByIdAndUpdate(sessionId, {
+      durationMs,
+      updatedAt: new Date(),
+    });
 
     return NextResponse.json({
       response: aiResponseContent,

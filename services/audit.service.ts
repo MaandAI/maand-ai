@@ -1,4 +1,5 @@
-import { adminDb } from "@/lib/firebase-admin";
+import dbConnect from "@/lib/mongodb";
+import AuditLog from "@/models/AuditLog";
 
 export type AuditAction =
   | "USER_LOGIN"
@@ -14,17 +15,13 @@ export async function logAuditAction(
   metadata: any,
 ) {
   try {
-    await adminDb.collection("audit_logs").add({
+    await dbConnect();
+    await AuditLog.create({
       userId,
       action,
       metadata,
-      timestamp: new Date().toISOString(),
-      // Ensure no PII like raw passwords/messages is logged here directly
-      systemContext: "SERVER_ACTION",
     });
   } catch (e) {
-    // We log locally if remote audit fails to prevent crashing the main request,
-    // but it still needs to be recorded.
     console.error("FATAL: Failed to write to audit log:", e);
   }
 }

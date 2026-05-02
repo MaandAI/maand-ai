@@ -3,8 +3,7 @@
 import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { signOut } from "next-auth/react";
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -18,9 +17,8 @@ export function SessionWatcher() {
       description: "You have been logged out due to inactivity for security.",
       variant: "destructive",
     });
-    await signOut(auth);
-    router.push("/login");
-  }, [router, toast]);
+    await signOut({ callbackUrl: "/login" });
+  }, [toast]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;

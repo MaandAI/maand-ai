@@ -1,15 +1,11 @@
 import axios from "axios";
-import { auth } from "./firebase";
 
 export const apiClient = axios.create({
   baseURL: "/api",
 });
 
-// Automatically inject valid Firebase tokens
-apiClient.interceptors.request.use(async (config) => {
-  if (auth.currentUser) {
-    const token = await auth.currentUser.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+// NextAuth uses session cookies automatically for same-origin requests.
+// No need to manually inject tokens unless calling external services.
+apiClient.interceptors.request.use((config) => {
   return config;
 });

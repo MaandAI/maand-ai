@@ -16,10 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { loginWithEmail } from "@/services/auth.service";
-import { getUserProfile } from "@/services/user.service";
+import { signIn } from "next-auth/react";
 import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "../ui/alert";
 
 export function LoginForm() {
   const router = useRouter();
@@ -34,16 +33,20 @@ export function LoginForm() {
     setIsLoading(true);
 
     try {
-      const user = await loginWithEmail(email, password);
-      const profile = await getUserProfile(user.uid);
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-      if (profile?.role === "admin") {
-        router.push("/admin");
+      if (result?.error) {
+        setError(result.error);
+        setIsLoading(false);
       } else {
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Invalid credentials");
+      setError("An unexpected error occurred");
       setIsLoading(false);
     }
   };

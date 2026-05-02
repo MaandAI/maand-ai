@@ -13,17 +13,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useRouter } from "next/navigation";
-import { logoutUser } from "@/services/auth.service";
+// import { logoutUser } from "@/services/auth.service";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
+import { signOut } from "next-auth/react";
 
 export function AdminHeader() {
   const router = useRouter();
   const { profile } = useAuth();
 
   const handleLogout = async () => {
-    await logoutUser();
-    router.push("/login");
+    await signOut({ callbackUrl: "/login" });
   };
 
   return (

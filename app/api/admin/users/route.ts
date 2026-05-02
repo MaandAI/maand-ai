@@ -1,42 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import dbConnect from "@/lib/mongodb";
+import User from "@/models/User";
 
 export async function GET(request: NextRequest) {
   try {
-    const token =
-      request.cookies.get("token")?.value ||
-      request.cookies.get("__session")?.value;
+    const session = await getServerSession(authOptions);
 
-    if (!token) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decodedToken = await adminAuth.verifyIdToken(token);
-
-    // Check role claim or fetch user doc to verify admin
-    if (decodedToken.role !== "admin") {
-      const userDoc = await adminDb
-        .collection("users")
-        .doc(decodedToken.uid)
-        .get();
-      if (!userDoc.exists || userDoc.data()?.role !== "admin") {
-        return NextResponse.json(
-          { error: "Forbidden. Admin access required." },
-          { status: 403 },
-        );
-      }
+    if ((session.user as any).role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden. Admin access required." },
+        { status: 403 },
+      );
     }
 
-    // Example admin logic: get all mock users or real users list
-    const usersSnapshot = await adminDb.collection("users").limit(50).get();
-    const users = usersSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    await dbConnect();
+    const users = await User.find().limit(50);
 
     return NextResponse.json({
       success: true,
-      data: users,
+      data: users.map(user => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+      })),
     });
   } catch (error) {
     console.error("Admin API Error:", error);

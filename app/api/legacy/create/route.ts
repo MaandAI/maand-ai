@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { createLegacyProfile } from "@/services/legacy.service";
 import { z } from "zod";
 
@@ -14,13 +15,12 @@ const LegacyInputSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const token =
-      req.cookies.get("token")?.value || req.cookies.get("__session")?.value;
-    if (!token)
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    const userId = (session.user as any).id;
     const bodyRaw = await req.json();
 
     const parsed = LegacyInputSchema.safeParse(bodyRaw);

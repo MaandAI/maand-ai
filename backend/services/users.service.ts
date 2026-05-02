@@ -1,4 +1,5 @@
-import { adminDb } from "../config/firebase-admin";
+import dbConnect from "@/lib/mongodb";
+import User from "@/models/User";
 
 export interface UserProfile {
   id: string;
@@ -16,22 +17,21 @@ export interface UserProfile {
 
 export class UsersService {
   static async getAllUsers(): Promise<UserProfile[]> {
-    const snapshot = await adminDb
-      .collection("users")
-      .orderBy("createdAt", "desc")
-      .get();
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
+    await dbConnect();
+    const users = await User.find().sort({ createdAt: -1 });
+    
+    return users.map((user) => {
       return {
-        id: doc.id,
-        ...data,
-        name: data.displayName || data.name || "Unknown User",
-        createdAt: data.createdAt?.toDate
-          ? data.createdAt.toDate()
-          : new Date(),
-        lastActive: data.lastActive?.toDate
-          ? data.lastActive.toDate()
-          : new Date(),
+        id: user._id.toString(),
+        uid: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        displayName: user.name,
+        role: user.role,
+        status: user.status,
+        subscription: (user as any).subscription || "free",
+        createdAt: user.createdAt,
+        lastActive: (user as any).updatedAt || user.createdAt,
       } as UserProfile;
     });
   }

@@ -1,25 +1,30 @@
-import { adminDb } from "../config/firebase-admin";
-import { WaitlistEntry } from "../validators/waitlist.schema";
+import dbConnect from "@/lib/mongodb";
+import WaitlistModel from "@/models/Waitlist";
+import { WaitlistEntry as IWaitlistEntry } from "../validators/waitlist.schema";
 
 export class WaitlistService {
   static async addEntry(
-    data: Omit<WaitlistEntry, "id" | "joinedAt">,
+    data: Omit<IWaitlistEntry, "id" | "joinedAt">,
   ): Promise<string> {
-    const ref = await adminDb.collection("waitlist").add({
+    await dbConnect();
+    const entry = await WaitlistModel.create({
       ...data,
-      joinedAt: new Date(),
     });
-    return ref.id;
+    return entry._id.toString();
   }
 
-  static async getEntries(): Promise<WaitlistEntry[]> {
-    const snapshot = await adminDb
-      .collection("waitlist")
-      .orderBy("joinedAt", "desc")
-      .get();
+  static async getEntries(): Promise<IWaitlistEntry[]> {
+    await dbConnect();
+    const entries = await WaitlistModel.find().sort({ createdAt: -1 });
 
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as WaitlistEntry,
+    return entries.map(
+      (doc) => ({ 
+        id: doc._id.toString(),
+        email: doc.email,
+        name: doc.name,
+        status: doc.status,
+        joinedAt: doc.createdAt,
+      } as IWaitlistEntry),
     );
   }
 
@@ -27,6 +32,7 @@ export class WaitlistService {
     entryId: string,
     status: "pending" | "contacted" | "converted",
   ) {
-    await adminDb.collection("waitlist").doc(entryId).update({ status });
+    await dbConnect();
+    await WaitlistModel.findByIdAndUpdate(entryId, { status });
   }
 }

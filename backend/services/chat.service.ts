@@ -1,118 +1,89 @@
-import { adminDb } from "../config/firebase-admin";
+import dbConnect from "@/lib/mongodb";
+import ChatSession from "@/models/ChatSession";
+import Message from "@/models/Message";
 import { encryptData, decryptData } from "@/utils/encryption";
 import { detectCrisis } from "../utils/crisis-detector";
-import { ChatSession, ChatMessage } from "../validators/chat.schema";
-import { FieldValue } from "firebase-admin/firestore";
+import { ChatSession as IChatSession, ChatMessage } from "../validators/chat.schema";
 
 export class ChatService {
-  static async createSession(userId: string, persona: any): Promise<string> {
-    const sessionRef = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .add({
-        userId,
-        persona,
-        durationMs: 0,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+  static async createSession(userId: string, persona: any, title?: string): Promise<string> {
+    await dbConnect();
+    const session = await ChatSession.create({
+      userId,
+      persona,
+      title: title || `Therapy Session ${new Date().toLocaleDateString()}`,
+      durationMs: 0,
+    });
 
-    return sessionRef.id;
+    return session._id.toString();
   }
 
-  static async getSessions(userId: string): Promise<ChatSession[]> {
-    const snapshot = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .orderBy("updatedAt", "desc")
-      .get();
+  static async getSessions(userId: string): Promise<IChatSession[]> {
+    await dbConnect();
+    const sessions = await ChatSession.find({ userId }).sort({ updatedAt: -1 });
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as ChatSession[];
+    return sessions.map((doc) => ({
+      id: doc._id.toString(),
+      userId: doc.userId,
+      title: (doc as any).title,
+      persona: doc.persona,
+      durationMs: doc.durationMs,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    })) as any[];
   }
 
   static async saveMessage(userId: string, data: any) {
+    await dbConnect();
     const { sessionId, content, sender, emotion } = data;
 
-    // 1. Integration Point: Crisis Detection Logic (Server Side)
     const isCrisis = sender === "user" ? detectCrisis(content) : false;
-
-    // 2. Encrypt sensitive data
     const safeContent = encryptData(content);
 
-    const messageData = {
+    console.log(`Creating message in DB for session ${sessionId}, sender ${sender}...`);
+    const message = await Message.create({
       sessionId,
-      content: safeContent, // Secure string
+      content: safeContent,
+      sender,
+      emotion: emotion || null,
+    });
+    console.log(`Message created with ID: ${message._id}`);
+
+    await ChatSession.findByIdAndUpdate(sessionId, {
+      updatedAt: new Date(),
+    });
+
+    // Return unencrypted strictly for local client response
+    return { 
+      id: message._id.toString(), 
+      sessionId,
+      content, 
       sender,
       emotion: emotion || null,
       isCrisis,
-      timestamp: FieldValue.serverTimestamp(), // Guaranteed chronological scale
+      timestamp: (message as any).createdAt 
     };
-
-    // 3. Save to highly normalized Subcollection
-    const msgRef = adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .doc(sessionId)
-      .collection("messages")
-      .doc();
-
-    await msgRef.set(messageData);
-
-    // Update session Last Activity TS
-    await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .doc(sessionId)
-      .update({
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-
-    // 4. Aggregations (e.g. tracking crisis hits for analytics)
-    if (isCrisis) {
-      await adminDb
-        .collection("analytics")
-        .doc("crisis_alerts")
-        .collection(new Date().toISOString().split("T")[0])
-        .add({
-          userId,
-          sessionId,
-          messageId: msgRef.id,
-          timestamp: FieldValue.serverTimestamp(),
-        });
-    }
-
-    // Return unencrypted strictly for local client response
-    return { id: msgRef.id, ...messageData, content, timestamp: new Date() };
   }
 
   static async getSessionHistory(
     userId: string,
     sessionId: string,
   ): Promise<ChatMessage[]> {
-    const snapshot = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("chat_sessions")
-      .doc(sessionId)
-      .collection("messages")
-      .orderBy("timestamp", "asc")
-      .limit(50) // Prevent memory over-reading on large histories
-      .get();
+    await dbConnect();
+    console.log(`Fetching history for session: ${sessionId}`);
+    const messages = await Message.find({ sessionId }).sort({ createdAt: 1 }).limit(50);
+    console.log(`Found ${messages.length} messages for session ${sessionId}`);
+    messages.forEach(m => console.log(` - [${m.sender}] ${m.content.substring(0, 20)}...`));
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
+    return messages.map((doc) => {
       return {
-        id: doc.id,
-        ...data,
-        content: data.content ? decryptData(data.content) : "", // Decrypt on read
+        id: doc._id.toString(),
+        sessionId: doc.sessionId,
+        sender: doc.sender,
+        emotion: doc.emotion,
+        timestamp: (doc as any).createdAt,
+        content: doc.content ? decryptData(doc.content) : "",
       };
-    }) as ChatMessage[];
+    }) as any[];
   }
 }

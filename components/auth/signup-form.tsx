@@ -16,9 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { signIn } from "next-auth/react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { registerWithEmail } from "@/services/auth.service";
 import { AlertCircle } from "lucide-react";
 
 export function SignupForm() {
@@ -54,8 +54,24 @@ export function SignupForm() {
     setIsLoading(true);
 
     try {
-      await registerWithEmail(email, password, name);
-      router.push("/dashboard");
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create account");
+      }
+
+      // Automatically sign in after registration
+      await signIn("credentials", {
+        email,
+        password,
+        callbackUrl: "/dashboard",
+      });
     } catch (err: any) {
       setError(err.message || "Failed to create account");
       setIsLoading(false);

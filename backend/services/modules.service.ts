@@ -1,35 +1,47 @@
-import { adminDb } from "../config/firebase-admin";
+import dbConnect from "@/lib/mongodb";
+import Module from "@/models/Module";
+import UserModuleProgress from "@/models/UserModuleProgress";
 import {
   TherapyModule,
-  UserModuleProgress,
+  UserModuleProgress as IUserModuleProgress,
   TherapyModuleWithProgress,
 } from "../validators/modules.schema";
 
 export class ModulesService {
   static async getGlobalModules(): Promise<TherapyModule[]> {
-    const snapshot = await adminDb.collection("therapy_modules").get();
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as TherapyModule,
+    await dbConnect();
+    const modules = await Module.find();
+    return modules.map(
+      (doc) => ({ 
+        id: doc._id.toString(),
+        name: doc.name,
+        description: doc.description,
+        icon: doc.icon,
+        totalSessions: doc.totalSessions,
+      } as TherapyModule),
     );
   }
 
   static async getUserModulesWithProgress(
     userId: string,
   ): Promise<TherapyModuleWithProgress[]> {
+    await dbConnect();
     // 1. Fetch Global Modules
     const globalModules = await this.getGlobalModules();
 
     // 2. Fetch User specific progress
-    const progressSnapshot = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("user_modules")
-      .get();
+    const progressList = await UserModuleProgress.find({ userId });
 
-    const progressMap = new Map<string, UserModuleProgress>();
-    progressSnapshot.docs.forEach((doc) => {
-      const data = doc.data() as UserModuleProgress;
-      progressMap.set(data.moduleId, { ...data, id: doc.id });
+    const progressMap = new Map<string, IUserModuleProgress>();
+    progressList.forEach((doc) => {
+      progressMap.set(doc.moduleId, { 
+        id: doc._id.toString(),
+        userId: doc.userId,
+        moduleId: doc.moduleId,
+        status: doc.status,
+        progress: doc.progress,
+        sessionsCompleted: doc.sessionsCompleted,
+      });
     });
 
     // 3. Merge
@@ -46,47 +58,21 @@ export class ModulesService {
 
   static async updateUserModuleProgress(
     userId: string,
-    data: Partial<UserModuleProgress> & { moduleId: string },
+    data: Partial<IUserModuleProgress> & { moduleId: string },
   ) {
+    await dbConnect();
     const { moduleId, ...progressData } = data;
 
-    // Check if progress doc already exists
-    const progressRef = adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("user_modules")
-      .where("moduleId", "==", moduleId)
-      .limit(1);
+    const updated = await UserModuleProgress.findOneAndUpdate(
+      { userId, moduleId },
+      { ...progressData, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
 
-    const snapshot = await progressRef.get();
-
-    if (snapshot.empty) {
-      // Create new progress record
-      const docRef = adminDb
-        .collection("users")
-        .doc(userId)
-        .collection("user_modules")
-        .doc();
-      await docRef.set({
-        userId,
-        moduleId,
-        ...progressData,
-        updatedAt: new Date(),
-      });
-      return { id: docRef.id, moduleId, ...progressData };
-    } else {
-      // Update existing
-      const docId = snapshot.docs[0].id;
-      await adminDb
-        .collection("users")
-        .doc(userId)
-        .collection("user_modules")
-        .doc(docId)
-        .update({
-          ...progressData,
-          updatedAt: new Date(),
-        });
-      return { id: docId, moduleId, ...progressData };
-    }
+    return { 
+      id: updated._id.toString(), 
+      moduleId: updated.moduleId, 
+      ...progressData 
+    };
   }
 }

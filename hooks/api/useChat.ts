@@ -53,9 +53,28 @@ export function useChatAPI() {
     }
   }, []);
 
+  const getSessions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.get<{
+        success: boolean;
+        data: ChatSession[];
+      }>("/chat/sessions");
+      return response.data.data;
+    } catch (err: any) {
+      console.error("Error fetching sessions", err);
+      setError(err.response?.data?.error || "Failed to fetch sessions");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     sendMessage,
     getSessionHistory,
+    getSessions,
     loading,
     error,
   };

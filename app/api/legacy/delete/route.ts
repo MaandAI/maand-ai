@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { deleteLegacyProfile } from "@/services/legacy.service";
 
 export async function DELETE(req: NextRequest) {
   try {
-    const token =
-      req.cookies.get("token")?.value || req.cookies.get("__session")?.value;
-    if (!token)
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    const userId = (session.user as any).id;
 
     // Expecting profileId in query params
     const { searchParams } = new URL(req.url);

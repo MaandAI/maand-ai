@@ -1,56 +1,50 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import React, { createContext, useContext } from "react";
+import { SessionProvider, useSession } from "next-auth/react";
 import { UserProfile } from "@/types";
-import { getUserProfile } from "@/services/user.service";
 
 interface AuthContextType {
-  user: User | null;
+  user: any;
   profile: UserProfile | null;
   loading: boolean;
+  status: "authenticated" | "loading" | "unauthenticated";
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  status: "loading",
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  return (
+    <SessionProvider>
+      <AuthInternalProvider>{children}</AuthInternalProvider>
+    </SessionProvider>
+  );
+};
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        // Fetch user profile from Firestore to get roles
-        const userProfile = await getUserProfile(firebaseUser.uid);
-        setProfile(userProfile);
+const AuthInternalProvider = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession();
 
-        // Sync token cookie for middleware & server components
-        const token = await firebaseUser.getIdToken();
-        fetch("/api/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        }).catch(console.error);
-      } else {
-        setProfile(null);
-        // Sync logout across edge network
-        fetch("/api/auth/logout", { method: "POST" }).catch(console.error);
-      }
-      setLoading(false);
-    });
+  const user = session?.user || null;
+  const loading = status === "loading";
 
-    return () => unsubscribe();
-  }, []);
+  // Map session user to profile structure for backward compatibility
+  const profile: UserProfile | null = user ? {
+    uid: (user as any).id,
+    email: user.email || "",
+    displayName: user.name || "",
+    role: (user as any).role || "user",
+    status: "active",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } : null;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, status }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,12 +1,4 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { apiClient } from "@/lib/api-client";
 
 export interface WaitlistEntry {
   email: string;
@@ -17,12 +9,7 @@ export interface WaitlistEntry {
 
 export const joinWaitlist = async (data: Partial<WaitlistEntry>) => {
   try {
-    const waitlistRef = collection(db, "waitlist");
-    await addDoc(waitlistRef, {
-      ...data,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    });
+    await apiClient.post("/waitlist", data);
     return true;
   } catch (error) {
     console.error("Error joining waitlist:", error);
@@ -32,10 +19,8 @@ export const joinWaitlist = async (data: Partial<WaitlistEntry>) => {
 
 export const getWaitlistEntries = async () => {
   try {
-    const waitlistRef = collection(db, "waitlist");
-    const q = query(waitlistRef, orderBy("createdAt", "desc"), limit(100));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const res = await apiClient.get("/waitlist");
+    return res.data.data;
   } catch (error) {
     console.error("Error fetching waitlist:", error);
     return [];

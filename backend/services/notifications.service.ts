@@ -1,43 +1,39 @@
-import { adminDb } from "../config/firebase-admin";
-import { Notification } from "../validators/notifications.schema";
+import dbConnect from "@/lib/mongodb";
+import NotificationModel from "@/models/Notification";
+import { Notification as INotification } from "../validators/notifications.schema";
 
 export class NotificationsService {
-  static async getUserNotifications(userId: string): Promise<Notification[]> {
-    const snapshot = await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("notifications")
-      .orderBy("createdAt", "desc")
-      .limit(50)
-      .get();
+  static async getUserNotifications(userId: string): Promise<INotification[]> {
+    await dbConnect();
+    const notifications = await NotificationModel.find({ userId }).sort({ createdAt: -1 }).limit(50);
 
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as Notification,
+    return notifications.map(
+      (doc) => ({ 
+        id: doc._id.toString(),
+        userId: doc.userId,
+        title: doc.title,
+        message: doc.message,
+        type: doc.type,
+        read: doc.read,
+        createdAt: doc.createdAt,
+      } as INotification),
     );
   }
 
   static async markAsRead(userId: string, notificationId: string) {
-    await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("notifications")
-      .doc(notificationId)
-      .update({ read: true });
+    await dbConnect();
+    await NotificationModel.findByIdAndUpdate(notificationId, { read: true });
   }
 
   static async createNotification(
     userId: string,
-    data: Omit<Notification, "id" | "userId" | "createdAt">,
+    data: Omit<INotification, "id" | "userId" | "createdAt">,
   ) {
-    await adminDb
-      .collection("users")
-      .doc(userId)
-      .collection("notifications")
-      .add({
-        ...data,
-        userId,
-        createdAt: new Date(),
-        read: false,
-      });
+    await dbConnect();
+    await NotificationModel.create({
+      ...data,
+      userId,
+      read: false,
+    });
   }
 }

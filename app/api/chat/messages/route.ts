@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       }).parse(body);
 
       // 2. Delegate to Service Layer
-      const message = await ChatService.saveMessage(user.uid, validatedData);
+      const message = await ChatService.saveMessage(user.id, validatedData);
 
       return NextResponse.json(
         { success: true, data: message },
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      const history = await ChatService.getSessionHistory(user.uid, sessionId);
+      const history = await ChatService.getSessionHistory(user.id, sessionId);
 
       return NextResponse.json({ success: true, data: history });
     } catch (error: any) {

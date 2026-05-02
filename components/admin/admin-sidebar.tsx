@@ -1,12 +1,19 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, UserCheck, Activity, Settings, Menu } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { useState } from "react"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  Activity,
+  Settings,
+  Menu,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useState } from "react";
 
 const navigation = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard },
@@ -14,10 +21,10 @@ const navigation = [
   { name: "Waitlist", href: "/admin/waitlist", icon: UserCheck },
   { name: "Analytics", href: "/admin/analytics", icon: Activity },
   { name: "Settings", href: "/admin/settings", icon: Settings },
-]
+];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
@@ -32,7 +39,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname === item.href
+          const isActive = pathname === item.href;
           return (
             <Link
               key={item.name}
@@ -48,15 +55,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <item.icon className="h-5 w-5" />
               {item.name}
             </Link>
-          )
+          );
         })}
       </nav>
     </div>
-  )
+  );
 }
 
 export function AdminSidebar() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -77,5 +84,5 @@ export function AdminSidebar() {
         <SidebarContent />
       </aside>
     </>
-  )
+  );
 }

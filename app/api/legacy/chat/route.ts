@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { getLegacyProfile } from "@/services/legacy.service";
 import { logAuditAction } from "@/services/audit.service";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -8,13 +9,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const token =
-      req.cookies.get("token")?.value || req.cookies.get("__session")?.value;
-    if (!token)
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    const userId = decodedToken.uid;
+    const userId = (session.user as any).id;
     const { profileId, message } = await req.json();
 
     if (!profileId || !message) {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (new Date(profile.expiresAt) < new Date()) {
+    if (profile.expiresAt && new Date(profile.expiresAt) < new Date()) {
       return NextResponse.json(
         {
           error:
@@ -53,7 +53,7 @@ ETHICS DIRECTIVE: You MUST ONLY discuss the Allowed Topics. If the user asks abo
 
     // 3. Query LLM
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: systemPrompt,
     });
 

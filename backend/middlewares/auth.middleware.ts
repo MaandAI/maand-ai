@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "../config/firebase-admin";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export async function withAuth(
   req: NextRequest,
@@ -7,29 +8,27 @@ export async function withAuth(
   requireAdmin: boolean = false,
 ) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
       return NextResponse.json(
-        { error: "Missing or invalid token" },
+        { error: "Unauthorized" },
         { status: 401 },
       );
     }
 
-    const token = authHeader.split("Bearer ")[1];
+    const user = session.user as any;
 
-    // Attempt verification using Firebase Admin
-    const decodedToken = await adminAuth.verifyIdToken(token);
-
-    if (requireAdmin && decodedToken.role !== "admin") {
+    if (requireAdmin && user.role !== "admin") {
       return NextResponse.json(
         { error: "Forbidden: Admins only" },
         { status: 403 },
       );
     }
 
-    return handler(req, decodedToken);
+    return handler(req, user);
   } catch (error: any) {
     console.error("Auth Middleware Error:", error);
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

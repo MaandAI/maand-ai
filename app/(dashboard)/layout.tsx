@@ -3,6 +3,7 @@ import type React from "react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { SessionWatcher } from "@/components/auth/session-watcher";
+import { PageTransition } from "@/components/ui/page-transition";
 
 export default function DashboardLayout({
   children,
@@ -15,7 +16,9 @@ export default function DashboardLayout({
       <DashboardSidebar />
       <div className="flex flex-1 flex-col">
         <DashboardHeader />
-        <main className="flex-1 p-6 md:p-8">{children}</main>
+        <main className="flex-1 p-6 md:p-8">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   );
