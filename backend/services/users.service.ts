@@ -35,4 +35,21 @@ export class UsersService {
       } as UserProfile;
     });
   }
+  static async getUserProfile(id: string): Promise<UserProfile | null> {
+    await dbConnect();
+    const user = await User.findById(id);
+    if (!user) return null;
+    return {
+      id: user._id.toString(),
+      uid: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      displayName: user.name,
+      role: user.role,
+      status: user.status,
+      subscription: (user as any).subscription || "free",
+      createdAt: user.createdAt,
+      lastActive: (user as any).updatedAt || user.createdAt,
+    } as UserProfile;
+  }
 }

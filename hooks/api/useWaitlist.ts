@@ -48,6 +48,3 @@ export function useWaitlistAPI() {
 
   return { entries, loading, error, fetchEntries, updateStatus };
 }
-
-  return { entries, loading, error, fetchEntries, updateStatus };
-}

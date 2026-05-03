@@ -4,11 +4,11 @@ import { UsersService } from "@/backend/services/users.service";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(req, async (req, user) => {
     try {
-      const { id } = params;
+      const { id } = await params;
       const profile = await UsersService.getUserProfile(id);
       
       if (!profile) {

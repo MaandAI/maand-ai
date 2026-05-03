@@ -5,7 +5,7 @@ import { ChatService } from "@/backend/services/chat.service";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { sessionId: string } },
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function POST(
     }
 
     const userId = (session.user as any).id;
-    const { sessionId } = params;
+    const { sessionId } = await params;
 
     const completedSession = await ChatService.completeSession(
       userId,

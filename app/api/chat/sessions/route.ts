@@ -8,9 +8,9 @@ export async function GET(req: NextRequest) {
       const sessions = await ChatService.getSessions(user.id);
       
       // Enhance sessions with a temporary title if not present
-      const enhancedSessions = sessions.map(s => ({
+      const enhancedSessions = sessions.map((s: any) => ({
         ...s,
-        title: s.title || `Session ${new Date(s.createdAt).toLocaleDateString()}`
+        title: s.title || `Session ${new Date(s.createdAt || Date.now()).toLocaleDateString()}`
       }));
 
       return NextResponse.json({ success: true, data: enhancedSessions });

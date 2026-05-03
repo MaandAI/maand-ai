@@ -6,7 +6,7 @@ import dbConnect from "@/lib/mongodb";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { sessionId: string } },
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   return withAuth(req, async (req, user) => {
     try {
@@ -25,8 +25,9 @@ export async function PATCH(
       }
 
       await dbConnect();
+      const { sessionId } = await params;
       const session = await ChatSession.findOneAndUpdate(
-        { _id: params.sessionId, userId: user.id },
+        { _id: sessionId, userId: user.id },
         updateData,
         { new: true },
       );
@@ -51,13 +52,14 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { sessionId: string } },
+  { params }: { params: Promise<{ sessionId: string }> },
 ) {
   return withAuth(req, async (req, user) => {
     try {
       await dbConnect();
+      const { sessionId } = await params;
       const session = await ChatSession.findOneAndDelete({
-        _id: params.sessionId,
+        _id: sessionId,
         userId: user.id,
       });
 
