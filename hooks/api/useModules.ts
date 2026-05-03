@@ -2,7 +2,10 @@ import { useState, useCallback, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
 import { TherapyModuleWithProgress } from "@/backend/validators/modules.schema";
 
+import { useToast } from "@/hooks/use-toast";
+
 export function useModulesAPI() {
+  const { toast } = useToast();
   const [modules, setModules] = useState<TherapyModuleWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,18 +18,17 @@ export function useModulesAPI() {
         success: boolean;
         data: TherapyModuleWithProgress[];
       }>("/therapy-modules");
-      console.log("Modules: ", response);
       setModules(response.data.data);
     } catch (err: any) {
-      console.error("Error fetching modules", err);
-      setError(err.response?.data?.error || "Failed to fetch modules");
+      const msg = err.response?.data?.error || "Failed to fetch modules";
+      setError(msg);
+      toast({ title: "Fetch Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    // Only fetch if we are in browser to prevent hydration issues
     if (typeof window !== "undefined") {
       fetchModules();
     }
@@ -53,11 +55,14 @@ export function useModulesAPI() {
             : m,
         ),
       );
-    } catch (err) {
-      console.error("Failed to update progress", err);
+      toast({ title: "Progress Saved", description: "Your module progress has been updated." });
+    } catch (err: any) {
+      const msg = err.response?.data?.error || "Failed to update progress";
+      toast({ title: "Save Error", description: msg, variant: "destructive" });
       throw err;
     }
   };
 
   return { modules, loading, error, refresh: fetchModules, updateProgress };
 }
+

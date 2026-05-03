@@ -188,11 +188,11 @@ function WaitlistContent() {
                       <Mail className="mr-2 h-4 w-4" />
                       Send Email
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateStatus(entry.id, "contacted")}>
                       <CheckCircle2 className="mr-2 h-4 w-4" />
                       Mark as Contacted
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => updateStatus(entry.id, "converted")}>
                       <CheckCircle2 className="mr-2 h-4 w-4" />
                       Mark as Converted
                     </DropdownMenuItem>

@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AvatarDisplay } from "@/components/avatar/avatar-display";
 import { GoalSetting } from "@/components/therapy/goal-setting";
 import { cn } from "@/lib/utils";
-import { AvatarState } from "../types";
+import { AvatarState } from "@/types/therapy";
 
 interface ToolsSidebarProps {
   avatarState: AvatarState;
@@ -13,6 +13,7 @@ interface ToolsSidebarProps {
   personaDescription: string;
   onPersonaChange: (description: string) => void;
   sessionId: string | null;
+  className?: string;
 }
 
 export function ToolsSidebar({
@@ -21,9 +22,10 @@ export function ToolsSidebar({
   personaDescription,
   onPersonaChange,
   sessionId,
+  className,
 }: ToolsSidebarProps) {
   return (
-    <div className="hidden xl:flex flex-col gap-6 w-72 shrink-0">
+    <div className={cn("flex flex-col gap-6 w-72 shrink-0", className)}>
       <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm overflow-hidden rounded-3xl">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground font-bold">Session Avatar</CardTitle>

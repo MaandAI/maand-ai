@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       // Enhance sessions with a temporary title if not present
       const enhancedSessions = sessions.map(s => ({
         ...s,
-        title: s.title || `Session ${new Date(s.createdAt?.seconds * 1000).toLocaleDateString()}`
+        title: s.title || `Session ${new Date(s.createdAt).toLocaleDateString()}`
       }));
 
       return NextResponse.json({ success: true, data: enhancedSessions });

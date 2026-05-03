@@ -23,6 +23,7 @@ const ChatInputSchema = z.object({
     .optional()
     .nullable(),
   sessionId: z.string().optional().nullable(),
+  module: z.string().optional().nullable(),
 });
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_KEY!);
@@ -52,7 +53,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { message, persona, sessionId: clientSessionId } = parsed.data;
+    const {
+      message,
+      persona,
+      sessionId: clientSessionId,
+      module: moduleName,
+    } = parsed.data;
 
     await dbConnect();
 
@@ -92,26 +98,43 @@ export async function POST(req: NextRequest) {
       emotion,
     });
 
-    // 4. Groq LLM Response Generation Setup
+    // 4. Gemini Response Generation
     let aiResponseContent = "";
     if (hasCrisis) {
       aiResponseContent =
         "I am noticing some very difficult feelings here. I am an AI and cannot provide crisis support. Please contact the National Suicide Prevention Lifeline at 988 immediately.";
     } else {
       const systemPrompt = `You are an empathetic, clinical-grade AI therapy assistant. 
+${moduleName ? `The user is currently engaging with the "${moduleName}" module. Tailor your empathy and guidance toward this focus.` : ""}
 Persona guidelines: ${persona?.description || "Calm, gentle, supportive, and reflective."}
 The user's detected emotional state right now is: ${emotion}.
 Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.`;
 
-      const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash", // Fixed typo in previous version (2.5 -> 1.5)
-        systemInstruction: systemPrompt,
-      });
-
+      // Try generating content with gemini-1.5-flash, fallback to gemini-pro if it fails
       console.log("Generating AI response with Gemini...");
-      const result = await model.generateContent(message);
-      aiResponseContent = result.response.text();
-      console.log("AI Response generated:", aiResponseContent.substring(0, 50) + "...");
+      try {
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+          systemInstruction: systemPrompt,
+        });
+        const result = await model.generateContent(message);
+        aiResponseContent = result.response.text();
+      } catch (e) {
+        console.warn(
+          "Gemini 1.5 Flash failed, falling back to Gemini 1.5 Pro",
+          e,
+        );
+        const fallbackModel = genAI.getGenerativeModel({
+          model: "gemini-1.5-pro",
+          systemInstruction: systemPrompt,
+        });
+        const result = await fallbackModel.generateContent(message);
+        aiResponseContent = result.response.text();
+      }
+      console.log(
+        "AI Response generated:",
+        aiResponseContent.substring(0, 50) + "...",
+      );
     }
 
     // 5. Save AI Response
@@ -123,10 +146,13 @@ Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion.
     });
     console.log("AI response saved successfully.");
 
-    // 6. Calculate Latency & Update Session metrics
-    const durationMs = Date.now() - startTime;
+    // 6. Update Session metrics (Total duration from start of session)
+    const sessionDoc = await ChatSession.findById(sessionId);
+    const totalDurationMs =
+      Date.now() - new Date(sessionDoc.createdAt).getTime();
+
     await ChatSession.findByIdAndUpdate(sessionId, {
-      durationMs,
+      durationMs: totalDurationMs,
       updatedAt: new Date(),
     });
 
@@ -135,7 +161,7 @@ Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion.
       emotion,
       sessionId,
       isCrisis: hasCrisis,
-      latencyMs: durationMs,
+      latencyMs: Date.now() - startTime,
     });
   } catch (error: any) {
     console.error("Chat API Error:", error);

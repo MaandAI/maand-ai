@@ -17,11 +17,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { signIn } from "next-auth/react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "../ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 export function LoginForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -41,12 +43,26 @@ export function LoginForm() {
 
       if (result?.error) {
         setError(result.error);
+        toast({
+          title: "Login failed",
+          description: result.error,
+          variant: "destructive",
+        });
         setIsLoading(false);
       } else {
+        toast({
+          title: "Success",
+          description: "Welcome back! Redirecting...",
+        });
         router.push("/dashboard");
       }
     } catch (err: any) {
       setError("An unexpected error occurred");
+      toast({
+        title: "Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -103,6 +119,7 @@ export function LoginForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>

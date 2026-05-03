@@ -89,6 +89,9 @@ function BillingContent() {
         <p className="text-muted-foreground">
           Manage your subscription and billing information
         </p>
+        <p className="text-xs text-blue-500 mt-2 bg-blue-500/10 p-2 rounded-lg border border-blue-500/20 max-w-fit">
+          Demo Mode: Billing integration is simulated for this showcase.
+        </p>
       </div>
 
       {/* Current Plan */}

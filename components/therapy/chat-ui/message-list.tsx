@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Message } from "../types";
+import { Message } from "@/types/therapy";
 
 interface MessageListProps {
   messages: Message[];

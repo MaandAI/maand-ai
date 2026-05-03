@@ -7,6 +7,7 @@ export const ChatSessionSchema = z.object({
   durationMs: z.number().nonnegative().default(0),
   createdAt: z.union([z.string(), z.date()]).optional(),
   updatedAt: z.union([z.string(), z.date()]).optional(),
+  isFavorite: z.boolean().default(false),
 });
 
 export const ChatMessageSchema = z.object({

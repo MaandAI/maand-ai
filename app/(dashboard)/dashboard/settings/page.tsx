@@ -25,6 +25,9 @@ function SettingsContent() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account preferences</p>
+        <p className="text-xs text-amber-500 mt-2 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 max-w-fit">
+          Note: These settings are currently in preview and will be persisted in a future update.
+        </p>
       </div>
 
       <Card>

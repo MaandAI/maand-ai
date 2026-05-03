@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Brain,
@@ -15,31 +15,39 @@ import {
   Bot,
   Glasses,
   Lock,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { motion } from "framer-motion"
-import { useState } from "react"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { motion } from "framer-motion";
+import { useState } from "react";
 
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Modules", href: "/dashboard/modules", icon: Brain },
   { name: "AI Therapy", href: "/dashboard/therapy/chat", icon: MessageSquare },
   { name: "Therapy Avatar", href: "/dashboard/avatar", icon: Bot },
-  { name: "Immersive", href: "/dashboard/immersive", icon: Glasses, locked: true },
+  {
+    name: "Immersive",
+    href: "/dashboard/immersive",
+    icon: Glasses,
+    locked: true,
+  },
   { name: "Profile", href: "/dashboard/profile", icon: User },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
   { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
-]
+];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center border-b px-6 bg-gradient-to-r from-primary/5 to-transparent">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-bold text-xl tracking-tight"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transform hover:scale-105 transition-transform">
             M
           </div>
@@ -51,8 +59,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto custom-scrollbar">
         {navigation.map((item) => {
-          const isActive = pathname === item.href
-          const isLocked = item.locked
+          const isActive = pathname === item.href;
+          const isLocked = item.locked;
 
           if (isLocked) {
             return (
@@ -67,7 +75,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 <span className="flex-1">{item.name}</span>
                 <Lock className="h-3.5 w-3.5 opacity-60" />
               </div>
-            )
+            );
           }
 
           return (
@@ -82,38 +90,46 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   : "text-muted-foreground hover:bg-primary/10 hover:text-primary hover:translate-x-1",
               )}
             >
-              <item.icon className={cn(
-                "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-                isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-primary"
-              )} />
+              <item.icon
+                className={cn(
+                  "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
+                  isActive
+                    ? "text-primary-foreground"
+                    : "text-muted-foreground group-hover:text-primary",
+                )}
+              />
               <span className="flex-1">{item.name}</span>
               {isActive && (
-                <motion.div 
+                <motion.div
                   layoutId="active-indicator"
                   className="h-1.5 w-1.5 rounded-full bg-primary-foreground"
                 />
               )}
             </Link>
-          )
+          );
         })}
       </nav>
 
       <div className="p-4 border-t bg-muted/5">
         <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-4 border border-primary/10">
-          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Current Plan</p>
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
+            Current Plan
+          </p>
           <p className="text-sm font-bold mb-2">Pro Individual</p>
           <div className="h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
             <div className="h-full bg-primary w-2/3 rounded-full" />
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2">12 of 20 sessions used</p>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            12 of 20 sessions used
+          </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function DashboardSidebar() {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -127,15 +143,15 @@ export function DashboardSidebar() {
       </Sheet>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-72 flex-col border-r bg-card/50 backdrop-blur-sm sticky top-0 h-screen transition-all duration-300">
+      <aside className="hidden lg:flex w-72 flex-col border-r bg-card/50 backdrop-blur-sm sticky top-0 h-screen transition-all duration-300">
         <SidebarContent />
       </aside>
 
       {/* Global Mobile Trigger - Hidden on desktop */}
-      <div className="md:hidden fixed top-3 left-4 z-50">
-        <Button 
-          variant="outline" 
-          size="icon" 
+      <div className="lg:hidden fixed top-3 left-4 z-50">
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => setOpen(true)}
           className="bg-background/80 backdrop-blur shadow-sm border-primary/20 hover:border-primary/50 transition-all"
         >
@@ -143,5 +159,5 @@ export function DashboardSidebar() {
         </Button>
       </div>
     </>
-  )
+  );
 }

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
+import { Mic, MicOff, Send, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
@@ -70,7 +70,7 @@ export function ChatInput({
           className="rounded-2xl h-12 w-12 shadow-lg shadow-primary/20 transition-transform active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
           disabled={disabled || !message.trim() || isTyping}
         >
-          <Send className="h-5 w-5" />
+          {isTyping ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
         </Button>
       </form>
       <div className="flex items-center justify-between mt-3 px-1">

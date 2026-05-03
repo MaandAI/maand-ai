@@ -19,10 +19,12 @@ import {
 import { signIn } from "next-auth/react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function SignupForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,6 +68,11 @@ export function SignupForm() {
         throw new Error(data.error || "Failed to create account");
       }
 
+      toast({
+        title: "Account created",
+        description: "Welcome to Maand! Redirecting to dashboard...",
+      });
+
       // Automatically sign in after registration
       await signIn("credentials", {
         email,
@@ -73,7 +80,13 @@ export function SignupForm() {
         callbackUrl: "/dashboard",
       });
     } catch (err: any) {
-      setError(err.message || "Failed to create account");
+      const message = err.message || "Failed to create account";
+      setError(message);
+      toast({
+        title: "Registration failed",
+        description: message,
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -169,6 +182,7 @@ export function SignupForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
             {isLoading ? "Creating account..." : "Create account"}
           </Button>
         </form>

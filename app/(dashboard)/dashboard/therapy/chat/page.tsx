@@ -14,30 +14,33 @@ import { CrisisAlertBanner } from "@/components/therapy/crisis-alert-banner";
 import { GroundingExerciseModal } from "@/components/therapy/grounding-exercise-modal";
 import { GestureRecognition } from "@/components/therapy/gesture-recognition";
 
-// Refactored Components
-import { ChatHeader } from "./components/chat-header";
-import { ChatSidebar } from "./components/chat-sidebar";
-import { MessageList } from "./components/message-list";
-import { ChatInput } from "./components/chat-input";
-import { ToolsSidebar } from "./components/tools-sidebar";
-
-// Hooks & Types
-import { useTherapyChat } from "./hooks/use-therapy-chat";
-import { useTherapyVoice } from "./hooks/use-therapy-voice";
-import { AvatarState } from "./types";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { ChatSidebar } from "@/components/therapy/chat-ui/chat-sidebar";
+import { MessageList } from "@/components/therapy/chat-ui/message-list";
+import { ToolsSidebar } from "@/components/therapy/chat-ui/tools-sidebar";
+import { ChatInput } from "@/components/therapy/chat-ui/chat-input";
+import { ChatHeader } from "@/components/therapy/chat-ui/chat-header";
+import { AvatarState } from "@/types/therapy";
 import { Mood } from "@/lib/mock/therapy";
+import { useTherapyChat } from "@/hooks/therapy/use-therapy-chat";
+import { useTherapyVoice } from "@/hooks/therapy/use-therapy-voice";
 
 export default function TherapyChatPage() {
   const { toast } = useToast();
   const { persona, savePersona } = usePersonaProfile();
-  
+
   // Custom Hooks
   const chat = useTherapyChat();
   const voice = useTherapyVoice();
 
   // Local UI State
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [showGroundingModal, setShowGroundingModal] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>("calm");
   const [userIsTyping, setUserIsTyping] = useState(false);
@@ -70,7 +73,7 @@ export default function TherapyChatPage() {
     const content = `Thank you for taking a moment to check in. I understand you're feeling ${mood.label.toLowerCase()} right now${
       note ? `. I hear you: "${note}"` : ""
     }. There's no right or wrong way to feel—I'm simply here to listen and support you. What would feel helpful to explore today?`;
-    
+
     chat.addAIMessage(content);
     voice.speakText(content);
 
@@ -92,23 +95,42 @@ export default function TherapyChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] gap-6">
-      <ChatHeader 
+    <div className="flex flex-col h-[calc(100vh-8rem)] gap-4 md:gap-6">
+      <ChatHeader
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         isRightSidebarOpen={isRightSidebarOpen}
         setIsRightSidebarOpen={setIsRightSidebarOpen}
         onNewSession={chat.handleNewSession}
+        onCompleteSession={() => chat.completeSession(chat.sessionId)}
+        isCompleting={chat.isCompleting}
       />
 
       <div className="flex-1 flex gap-6 overflow-hidden">
-        {isSidebarOpen && (
-          <ChatSidebar 
-            sessions={chat.sessions}
-            currentSessionId={chat.sessionId}
-            onSelectSession={chat.handleSelectSession}
-          />
-        )}
+        {/* Mobile Left Sidebar */}
+        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+          <SheetContent side="left" className="p-0 w-72">
+            <ChatSidebar
+              sessions={chat.sessions}
+              currentSessionId={chat.sessionId}
+              onSelectSession={(id) => {
+                chat.handleSelectSession(id);
+                setIsSidebarOpen(false);
+              }}
+              onRefresh={chat.loadSessions}
+              className="flex w-full h-full border-none shadow-none bg-transparent"
+            />
+          </SheetContent>
+        </Sheet>
+
+        {/* Desktop Left Sidebar */}
+        <ChatSidebar
+          sessions={chat.sessions}
+          currentSessionId={chat.sessionId}
+          onSelectSession={chat.handleSelectSession}
+          onRefresh={chat.loadSessions}
+          className="hidden md:flex"
+        />
 
         <div className="flex-1 flex gap-6 overflow-hidden relative">
           <div className="flex-1 flex flex-col gap-6 overflow-hidden">
@@ -120,28 +142,28 @@ export default function TherapyChatPage() {
             )}
 
             <div className="flex-1 flex gap-6 overflow-hidden">
-              <Card className="flex-1 flex flex-col border-none shadow-xl bg-card/30 backdrop-blur-md rounded-3xl overflow-hidden relative">
+              <Card className="flex-1 flex flex-col border-none shadow-xl bg-card/30 backdrop-blur-md rounded-2xl md:rounded-3xl overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-                
-                {/* Interaction Mask during Mood Check */}
-                {chat.showMoodCheckIn && (
-                  <div className="absolute inset-x-0 bottom-0 top-[60px] bg-background/40 backdrop-blur-[2px] z-20 flex items-center justify-center rounded-b-3xl">
-                    <div className="bg-card/80 px-6 py-3 rounded-2xl shadow-xl border border-primary/10 text-sm font-medium animate-in fade-in zoom-in duration-300">
-                      Complete your mood check-in to start chatting
-                    </div>
-                  </div>
-                )}
 
-                <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-                  <GestureRecognition onGestureDetected={(r) => chat.setMessage(prev => prev + " " + r.intent)} />
+
+
+                <ScrollArea className="flex-1 p-4 md:p-6" ref={scrollRef}>
+                  <GestureRecognition
+                    onGestureDetected={(r) =>
+                      chat.setMessage((prev) => prev + " " + r.intent)
+                    }
+                  />
 
                   <div className="space-y-6">
                     {chat.showMoodCheckIn ? (
-                      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                      >
                         <MoodCheckIn onComplete={handleMoodComplete} />
                       </motion.div>
                     ) : (
-                      <MessageList 
+                      <MessageList
                         messages={chat.messages}
                         isTyping={chat.isTyping}
                         formatTime={formatTime}
@@ -151,12 +173,18 @@ export default function TherapyChatPage() {
                   </div>
                 </ScrollArea>
 
-                <ChatInput 
+                <ChatInput
                   message={chat.message}
                   setMessage={chat.setMessage}
                   onSubmit={handleMessageSubmit}
                   isListening={voice.isListening}
-                  toggleListening={() => voice.isListening ? voice.stopListening() : voice.startListening(t => chat.setMessage(prev => prev + t + " "))}
+                  toggleListening={() =>
+                    voice.isListening
+                      ? voice.stopListening()
+                      : voice.startListening((t) =>
+                          chat.setMessage((prev) => prev + t + " "),
+                        )
+                  }
                   voiceEnabled={voice.voiceEnabled}
                   setVoiceEnabled={voice.setVoiceEnabled}
                   disabled={chat.showMoodCheckIn}
@@ -165,21 +193,43 @@ export default function TherapyChatPage() {
                 />
               </Card>
 
-              {isRightSidebarOpen && (
-                <ToolsSidebar 
-                  avatarState={avatarState}
-                  avatarEnabled={voice.voiceEnabled}
-                  personaDescription={persona?.description || ""}
-                  onPersonaChange={(d) => savePersona({ description: d })}
-                  sessionId={chat.sessionId}
-                />
-              )}
+              {/* Mobile Right Sidebar */}
+              <Sheet
+                open={isRightSidebarOpen}
+                onOpenChange={setIsRightSidebarOpen}
+              >
+                <SheetContent side="right" className="p-0 w-80">
+                  <ScrollArea className="h-full">
+                    <ToolsSidebar
+                      avatarState={avatarState}
+                      avatarEnabled={true}
+                      personaDescription={persona?.description || ""}
+                      onPersonaChange={(d) => savePersona({ description: d })}
+                      sessionId={chat.sessionId}
+                      className="flex w-full p-4 border-none shadow-none bg-transparent"
+                    />
+                  </ScrollArea>
+                </SheetContent>
+              </Sheet>
+
+              {/* Desktop Right Sidebar */}
+              <ToolsSidebar
+                avatarState={avatarState}
+                avatarEnabled={true}
+                personaDescription={persona?.description || ""}
+                onPersonaChange={(d) => savePersona({ description: d })}
+                sessionId={chat.sessionId}
+                className="hidden lg:flex"
+              />
             </div>
           </div>
         </div>
       </div>
 
-      <GroundingExerciseModal open={showGroundingModal} onOpenChange={setShowGroundingModal} />
+      <GroundingExerciseModal
+        open={showGroundingModal}
+        onOpenChange={setShowGroundingModal}
+      />
     </div>
   );
 }
