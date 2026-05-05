@@ -156,4 +156,44 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Custom Premium Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(var(--primary) / 0.1);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    transition: all 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(var(--primary) / 0.3);
+    background-clip: content-box;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(var(--primary) / 0.1) transparent;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 }

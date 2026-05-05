@@ -122,10 +122,29 @@ export function useChatAPI() {
     }
   }, []);
 
+  const createSession = useCallback(async (persona?: any, title?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        data: { id: string };
+      }>("/chat/sessions", { persona, title });
+      return response.data.data.id;
+    } catch (err: any) {
+      console.error("Error creating session", err);
+      setError(err.response?.data?.error || "Failed to create session");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     sendMessage,
     getSessionHistory,
     getSessions,
+    createSession,
     renameSession,
     deleteSession,
     toggleFavorite,

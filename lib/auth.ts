@@ -22,13 +22,18 @@ export const authOptions: NextAuthOptions = {
 
         await dbConnect();
 
-        const user = await User.findOne({ email: credentials.email }).select("+password");
+        const user = await User.findOne({ email: credentials.email }).select(
+          "+password",
+        );
 
         if (!user) {
           throw new Error("No user found with this email");
         }
 
-        const isPasswordCorrect = await bcrypt.compare(credentials.password, user.password);
+        const isPasswordCorrect = await bcrypt.compare(
+          credentials.password,
+          user.password,
+        );
 
         if (!isPasswordCorrect) {
           throw new Error("Invalid password");

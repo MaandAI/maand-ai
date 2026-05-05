@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { usePersonaProfile } from "@/hooks/use-persona-profile";
@@ -29,6 +29,7 @@ import { AvatarState } from "@/types/therapy";
 import { Mood } from "@/lib/mock/therapy";
 import { useTherapyChat } from "@/hooks/therapy/use-therapy-chat";
 import { useTherapyVoice } from "@/hooks/therapy/use-therapy-voice";
+import { AvatarDisplay } from "@/components/avatar/avatar-display";
 
 export default function TherapyChatPage() {
   const { toast } = useToast();
@@ -50,8 +51,10 @@ export default function TherapyChatPage() {
 
   // Auto-scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chat.messages, chat.isTyping]);
+    if (!chat.showMoodCheckIn) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chat.messages, chat.isTyping, chat.showMoodCheckIn]);
 
   // Sync Avatar State
   useEffect(() => {
@@ -94,106 +97,163 @@ export default function TherapyChatPage() {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => setIsLargeScreen(window.innerWidth >= 1024);
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    setIsSidebarOpen(false);
+    setIsRightSidebarOpen(false);
+    chat.handleNewSession();
+  }, [chat]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] gap-4 md:gap-6">
+    <div className="flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100vh-8rem)] min-h-0 gap-4">
       <ChatHeader
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         isRightSidebarOpen={isRightSidebarOpen}
         setIsRightSidebarOpen={setIsRightSidebarOpen}
-        onNewSession={chat.handleNewSession}
+        onNewSession={handleNewSession}
         onCompleteSession={() => chat.completeSession(chat.sessionId)}
         isCompleting={chat.isCompleting}
       />
 
-      <div className="flex-1 flex gap-6 overflow-hidden">
-        {/* Mobile Left Sidebar */}
-        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-          <SheetContent side="left" className="p-0 w-72">
-            <ChatSidebar
-              sessions={chat.sessions}
-              currentSessionId={chat.sessionId}
-              onSelectSession={(id) => {
-                chat.handleSelectSession(id);
-                setIsSidebarOpen(false);
-              }}
-              onRefresh={chat.loadSessions}
-              className="flex w-full h-full border-none shadow-none bg-transparent"
-            />
-          </SheetContent>
-        </Sheet>
-
-        {/* Desktop Left Sidebar */}
-        <ChatSidebar
-          sessions={chat.sessions}
-          currentSessionId={chat.sessionId}
-          onSelectSession={chat.handleSelectSession}
-          onRefresh={chat.loadSessions}
-          className="hidden md:flex"
-        />
-
-        <div className="flex-1 flex gap-6 overflow-hidden relative">
-          <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-            {chat.showCrisisAlert && (
-              <CrisisAlertBanner
-                onConnectProvider={() => toast({ title: "Connecting..." })}
-                onGroundingExercise={() => setShowGroundingModal(true)}
+      <div className="flex-1 min-h-0 flex gap-4 md:gap-6 overflow-hidden relative">
+        {/* Left Sidebar: Mobile Sheet (Only on small/medium screens) */}
+        {!isLargeScreen && (
+          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+            <SheetContent side="left" className="p-0 w-72">
+              <ChatSidebar
+                sessions={chat.sessions}
+                currentSessionId={chat.sessionId}
+                onSelectSession={(id) => {
+                  chat.handleSelectSession(id);
+                  setIsSidebarOpen(false);
+                }}
+                onRefresh={chat.loadSessions}
+                className="flex w-full h-full border-none shadow-none bg-transparent"
               />
-            )}
+            </SheetContent>
+          </Sheet>
+        )}
 
-            <div className="flex-1 flex gap-6 overflow-hidden">
-              <Card className="flex-1 flex flex-col border-none shadow-xl bg-card/30 backdrop-blur-md rounded-2xl md:rounded-3xl overflow-hidden relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+        {/* Left Sidebar: Desktop Motion Div (Only on large screens) */}
+        <AnimatePresence>
+          {isSidebarOpen && isLargeScreen && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 300, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="hidden lg:flex shrink-0 h-full overflow-hidden"
+            >
+              <ChatSidebar
+                sessions={chat.sessions}
+                currentSessionId={chat.sessionId}
+                onSelectSession={chat.handleSelectSession}
+                onRefresh={chat.loadSessions}
+                className="w-full h-full"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden relative">
+          {chat.showCrisisAlert && (
+            <CrisisAlertBanner
+              onConnectProvider={() => toast({ title: "Connecting..." })}
+              onGroundingExercise={() => setShowGroundingModal(true)}
+            />
+          )}
 
+          <div className="flex-1 min-h-0 flex gap-6 overflow-hidden relative">
+            <Card className="flex-1 flex flex-col border-none shadow-2xl bg-card/40 backdrop-blur-xl rounded-[2rem] overflow-hidden relative border border-primary/5">
+              <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.03] to-transparent pointer-events-none" />
 
-                <ScrollArea className="flex-1 p-4 md:p-6" ref={scrollRef}>
+              <div className="flex-1 min-h-0 relative">
+                <ScrollArea 
+                  className="absolute inset-0 w-full h-full p-4 md:p-8" 
+                  ref={scrollRef}
+                  hideScrollbar
+                >
+                {!chat.showMoodCheckIn && (
                   <GestureRecognition
                     onGestureDetected={(r) =>
                       chat.setMessage((prev) => prev + " " + r.intent)
                     }
                   />
+                )}
 
-                  <div className="space-y-6">
-                    {chat.showMoodCheckIn ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                      >
-                        <MoodCheckIn onComplete={handleMoodComplete} />
-                      </motion.div>
-                    ) : (
-                      <MessageList
-                        messages={chat.messages}
-                        isTyping={chat.isTyping}
-                        formatTime={formatTime}
-                      />
-                    )}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </ScrollArea>
+                <div className="max-w-4xl mx-auto space-y-6">
+                  {chat.showMoodCheckIn ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="py-4 md:py-8"
+                    >
+                      <MoodCheckIn onComplete={handleMoodComplete} />
+                    </motion.div>
+                  ) : (
+                    <MessageList
+                      messages={chat.messages}
+                      isTyping={chat.isTyping}
+                      formatTime={formatTime}
+                    />
+                  )}
+                  <div ref={messagesEndRef} className="h-4" />
+                </div>
+              </ScrollArea>
+            </div>
 
-                <ChatInput
-                  message={chat.message}
-                  setMessage={chat.setMessage}
-                  onSubmit={handleMessageSubmit}
-                  isListening={voice.isListening}
-                  toggleListening={() =>
-                    voice.isListening
-                      ? voice.stopListening()
-                      : voice.startListening((t) =>
-                          chat.setMessage((prev) => prev + t + " "),
-                        )
-                  }
-                  voiceEnabled={voice.voiceEnabled}
-                  setVoiceEnabled={voice.setVoiceEnabled}
-                  disabled={chat.showMoodCheckIn}
-                  isTyping={chat.isTyping}
-                  setUserIsTyping={setUserIsTyping}
-                />
-              </Card>
+              {/* Floating Avatar when right sidebar is closed - Desktop only */}
+              <AnimatePresence>
+                {!isRightSidebarOpen &&
+                  !chat.showMoodCheckIn &&
+                  isLargeScreen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8, x: 20 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                      className="absolute top-6 right-6 z-10"
+                    >
+                      <div className="bg-card/90 backdrop-blur-md p-2 rounded-full shadow-2xl border border-primary/20 scale-75 transform-gpu origin-top-right">
+                        <AvatarDisplay
+                          state={avatarState}
+                          enabled={true}
+                          size="sm"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+              </AnimatePresence>
 
-              {/* Mobile Right Sidebar */}
+              <ChatInput
+                message={chat.message}
+                setMessage={chat.setMessage}
+                onSubmit={handleMessageSubmit}
+                isListening={voice.isListening}
+                toggleListening={() =>
+                  voice.isListening
+                    ? voice.stopListening()
+                    : voice.startListening((t) =>
+                        chat.setMessage((prev) => prev + t + " "),
+                      )
+                }
+                voiceEnabled={voice.voiceEnabled}
+                setVoiceEnabled={voice.setVoiceEnabled}
+                disabled={chat.showMoodCheckIn}
+                isTyping={chat.isTyping}
+                setUserIsTyping={setUserIsTyping}
+              />
+            </Card>
+
+            {/* Right Sidebar: Mobile Sheet (Only on small/medium screens) */}
+            {!isLargeScreen && (
               <Sheet
                 open={isRightSidebarOpen}
                 onOpenChange={setIsRightSidebarOpen}
@@ -211,17 +271,30 @@ export default function TherapyChatPage() {
                   </ScrollArea>
                 </SheetContent>
               </Sheet>
+            )}
 
-              {/* Desktop Right Sidebar */}
-              <ToolsSidebar
-                avatarState={avatarState}
-                avatarEnabled={true}
-                personaDescription={persona?.description || ""}
-                onPersonaChange={(d) => savePersona({ description: d })}
-                sessionId={chat.sessionId}
-                className="hidden lg:flex"
-              />
-            </div>
+            {/* Right Sidebar: Desktop Motion Div (Only on large screens) */}
+            <AnimatePresence>
+              {isRightSidebarOpen && isLargeScreen && (
+                <motion.div
+                  initial={{ width: 0, opacity: 0 }}
+                  animate={{ width: 340, opacity: 1 }}
+                  exit={{ width: 0, opacity: 0 }}
+                  className="hidden lg:flex shrink-0 h-full overflow-hidden"
+                >
+                  <ScrollArea className="w-full h-full">
+                    <ToolsSidebar
+                      avatarState={avatarState}
+                      avatarEnabled={true}
+                      personaDescription={persona?.description || ""}
+                      onPersonaChange={(d) => savePersona({ description: d })}
+                      sessionId={chat.sessionId}
+                      className="w-full h-full p-4"
+                    />
+                  </ScrollArea>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

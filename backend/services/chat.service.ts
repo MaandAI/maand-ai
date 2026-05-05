@@ -188,4 +188,39 @@ export class ChatService {
 
     return session;
   }
+
+  static async updateSession(
+    userId: string,
+    sessionId: string,
+    data: { title?: string; isFavorite?: boolean },
+  ): Promise<IChatSession | null> {
+    await dbConnect();
+    const session = await ChatSession.findOneAndUpdate(
+      { _id: sessionId, userId },
+      data,
+      { new: true },
+    );
+    if (!session) return null;
+    return {
+      id: session._id.toString(),
+      userId: session.userId,
+      title: (session as any).title,
+      persona: session.persona,
+      durationMs: session.durationMs,
+      status: session.status,
+      reportUrl: session.reportUrl,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      isFavorite: (session as any).isFavorite,
+    } as any;
+  }
+
+  static async deleteSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<boolean> {
+    await dbConnect();
+    const result = await ChatSession.deleteOne({ _id: sessionId, userId });
+    return result.deletedCount > 0;
+  }
 }

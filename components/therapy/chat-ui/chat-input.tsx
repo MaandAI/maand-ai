@@ -31,30 +31,30 @@ export function ChatInput({
   setUserIsTyping,
 }: ChatInputProps) {
   return (
-    <div className="p-4 bg-card/50 backdrop-blur-xl border-t border-primary/10">
-      <form onSubmit={onSubmit} className="flex gap-3 items-end">
+    <div className="p-3 md:p-6 bg-card/40 backdrop-blur-2xl border-t border-primary/5">
+      <form onSubmit={onSubmit} className="flex gap-2 md:gap-4 items-end max-w-4xl mx-auto">
         <Button
           type="button"
           variant="outline"
           size="icon"
           className={cn(
-            "rounded-2xl h-12 w-12 border-primary/20 transition-all",
-            isListening && "bg-destructive text-destructive-foreground animate-pulse border-none"
+            "rounded-2xl h-11 w-11 md:h-12 md:w-12 border-primary/10 transition-all shrink-0",
+            isListening && "bg-destructive text-destructive-foreground animate-pulse border-none shadow-lg shadow-destructive/20"
           )}
           onClick={toggleListening}
           disabled={disabled}
         >
-          {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5 text-primary" />}
         </Button>
-        <div className="flex-1 relative group">
+        <div className="flex-1 relative group bg-background/40 rounded-[1.5rem] border border-primary/10 transition-all focus-within:border-primary/30 focus-within:bg-background/60 shadow-sm">
           <Textarea
-            placeholder="Type your message..."
+            placeholder="Share your thoughts..."
             value={message}
             onChange={(e) => {
               setMessage(e.target.value);
               setUserIsTyping(e.target.value.length > 0);
             }}
-            className="min-h-[3rem] max-h-32 rounded-2xl border-primary/20 focus-visible:ring-primary/30 resize-none py-3 px-4 bg-background/50 group-hover:bg-background transition-colors"
+            className="min-h-[2.75rem] max-h-32 rounded-[1.5rem] border-none focus-visible:ring-0 resize-none py-3 px-4 bg-transparent group-hover:bg-transparent transition-colors text-sm"
             disabled={disabled}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -63,29 +63,31 @@ export function ChatInput({
               }
             }}
           />
+          <div className="absolute right-2 bottom-1.5 flex items-center gap-1">
+             <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8 rounded-full text-muted-foreground transition-colors", voiceEnabled && "text-primary")}
+              onClick={() => setVoiceEnabled(!voiceEnabled)}
+            >
+              {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
         <Button 
           type="submit" 
           size="icon" 
-          className="rounded-2xl h-12 w-12 shadow-lg shadow-primary/20 transition-transform active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
+          className="rounded-2xl h-11 w-11 md:h-12 md:w-12 shadow-xl shadow-primary/10 transition-all active:scale-90 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
           disabled={disabled || !message.trim() || isTyping}
         >
           {isTyping ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
         </Button>
       </form>
-      <div className="flex items-center justify-between mt-3 px-1">
-        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest opacity-60">
-          Secure AI Consultation
+      <div className="flex items-center justify-center mt-3 opacity-40">
+        <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-muted-foreground">
+          Your conversation is private & secure
         </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-primary transition-colors"
-          onClick={() => setVoiceEnabled(!voiceEnabled)}
-        >
-          {voiceEnabled ? <Volume2 className="h-3 w-3 mr-1" /> : <VolumeX className="h-3 w-3 mr-1" />}
-          Voice {voiceEnabled ? "On" : "Off"}
-        </Button>
       </div>
     </div>
   );

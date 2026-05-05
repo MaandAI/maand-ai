@@ -25,32 +25,32 @@ export function ToolsSidebar({
   className,
 }: ToolsSidebarProps) {
   return (
-    <div className={cn("flex flex-col gap-6 w-72 shrink-0", className)}>
-      <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm overflow-hidden rounded-3xl">
+    <div className={cn("flex flex-col gap-6 shrink-0", className)}>
+      <Card className="border-none shadow-xl bg-card/80 backdrop-blur-md overflow-hidden rounded-[2rem] border border-primary/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground font-bold">Session Avatar</CardTitle>
+          <CardTitle className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-black opacity-60">Session Avatar</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center py-6">
-          <AvatarDisplay state={avatarState} enabled={avatarEnabled} size="lg" />
-          <div className="mt-4 text-center space-y-1">
-            <div className="flex items-center justify-center gap-2">
-              <div className={cn("h-2 w-2 rounded-full", {
+          <AvatarDisplay state={avatarState} enabled={avatarEnabled} size="md" />
+          <div className="mt-6 text-center space-y-2">
+            <div className="flex items-center justify-center gap-2.5">
+              <div className={cn("h-2.5 w-2.5 rounded-full shadow-sm", {
                 "bg-blue-400 animate-pulse": avatarState === "calm",
                 "bg-amber-400": avatarState === "thinking",
                 "bg-green-400": avatarState === "listening",
                 "bg-pink-400": avatarState === "supportive",
                 "bg-purple-400": avatarState === "reflective",
               })} />
-              <span className="text-sm font-bold capitalize">{avatarState}</span>
+              <span className="text-sm font-black uppercase tracking-widest text-foreground">{avatarState}</span>
             </div>
-            <p className="text-xs text-muted-foreground italic px-4">
+            <p className="text-[11px] text-muted-foreground font-medium italic px-6 leading-relaxed">
               {avatarState === "listening" ? "Listening closely to your thoughts..." : "Present and ready to support you."}
             </p>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm rounded-3xl">
+      <Card className="border-none shadow-xl bg-card/80 backdrop-blur-md rounded-[2rem] border border-primary/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground font-bold">Persona Details</CardTitle>
         </CardHeader>

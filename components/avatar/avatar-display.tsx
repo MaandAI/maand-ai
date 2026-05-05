@@ -19,11 +19,11 @@ const stateIcons = {
 }
 
 const stateColors = {
-  calm: "from-blue-400/20 to-cyan-400/20 border-blue-400/30",
-  supportive: "from-pink-400/20 to-rose-400/20 border-pink-400/30",
-  reflective: "from-purple-400/20 to-indigo-400/20 border-purple-400/30",
-  listening: "from-green-400/20 to-emerald-400/20 border-green-400/30",
-  thinking: "from-amber-400/20 to-yellow-400/20 border-amber-400/30",
+  calm: "from-blue-500/40 to-cyan-500/40 border-blue-400/60",
+  supportive: "from-pink-500/40 to-rose-500/40 border-pink-400/60",
+  reflective: "from-purple-500/40 to-indigo-500/40 border-purple-400/60",
+  listening: "from-green-500/40 to-emerald-500/40 border-green-400/60",
+  thinking: "from-amber-500/40 to-yellow-500/40 border-amber-400/60",
 }
 
 const sizeClasses = {
@@ -33,8 +33,8 @@ const sizeClasses = {
 }
 
 export function AvatarDisplay({ state, enabled, size = "md" }: AvatarDisplayProps) {
-  const Icon = stateIcons[state]
-  const classes = sizeClasses[size]
+  const Icon = stateIcons[state] || Sparkles
+  const classes = sizeClasses[size] || sizeClasses.md
 
   if (!enabled) {
     return (

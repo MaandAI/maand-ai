@@ -40,6 +40,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { Toaster } from "@/components/ui/toaster";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,6 +66,7 @@ export default function RootLayout({
             <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
           </div>
           <AuthProvider>{children}</AuthProvider>
+          <Toaster />
         </ThemeProvider>
         <Analytics />
       </body>

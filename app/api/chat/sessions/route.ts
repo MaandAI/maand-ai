@@ -23,3 +23,22 @@ export async function GET(req: NextRequest) {
     }
   });
 }
+export async function POST(req: NextRequest) {
+  return withAuth(req, async (req, user) => {
+    try {
+      const { persona, title } = await req.json();
+      const sessionId = await ChatService.createSession(user.id, persona || null, title);
+      
+      return NextResponse.json({ 
+        success: true, 
+        data: { id: sessionId } 
+      });
+    } catch (error: any) {
+      console.error("Session Creation Error:", error);
+      return NextResponse.json(
+        { error: "Failed to create session" },
+        { status: 500 }
+      );
+    }
+  });
+}

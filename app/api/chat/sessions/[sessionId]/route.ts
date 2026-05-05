@@ -1,8 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/backend/middlewares/auth.middleware";
-// import { ChatService } from "@/backend/services/chat.service";
-import ChatSession from "@/models/ChatSession";
 import dbConnect from "@/lib/mongodb";
+import ChatSession from "@/models/ChatSession";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> },
+) {
+  return withAuth(req, async (req, user) => {
+    try {
+      await dbConnect();
+      const { sessionId } = await params;
+      const session = await ChatSession.findOne({
+        _id: sessionId,
+        userId: user.id,
+      });
+
+      if (!session) {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({ success: true, data: session });
+    } catch (error: any) {
+      console.error("Get Session API Error:", error);
+      return NextResponse.json(
+        { error: "Internal Server Error" },
+        { status: 500 },
+      );
+    }
+  });
+}
 
 export async function PATCH(
   req: NextRequest,

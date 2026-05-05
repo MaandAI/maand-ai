@@ -23,7 +23,12 @@ export function useTherapyChat() {
   const [showCrisisAlert, setShowCrisisAlert] = useState(false);
   const [showMoodCheckIn, setShowMoodCheckIn] = useState(!querySessionId);
 
-  const { getSessions, getSessionHistory, loading: apiLoading } = useChatAPI();
+  const {
+    getSessions,
+    getSessionHistory,
+    createSession: apiCreateSession,
+    loading: apiLoading,
+  } = useChatAPI();
   const { persona } = usePersonaProfile();
 
   // Load Sessions
@@ -61,10 +66,10 @@ export function useTherapyChat() {
           .catch(console.error);
       }
     } else {
-      const welcomeContent = moduleParam 
+      const welcomeContent = moduleParam
         ? `Hello! I'm your AI therapy assistant. I see you're starting the "${moduleParam}" module. I'm here to support you through these exercises. How are you feeling as we begin this focus today?`
         : "Hello! I'm your AI therapy assistant. I'm here to provide a supportive space for you to explore your thoughts and feelings. How are you feeling today?";
-        
+
       setMessages([
         {
           id: "welcome",
@@ -78,13 +83,29 @@ export function useTherapyChat() {
 
   const [message, setMessage] = useState("");
 
-  const handleNewSession = useCallback(() => {
-    setSessionId(null);
-    setMessages([]);
-    setMessage("");
-    setShowMoodCheckIn(true);
-    router.push("/dashboard/therapy/chat");
-  }, [router]);
+  const handleNewSession = useCallback(async () => {
+    try {
+      const newId = await apiCreateSession(persona);
+      setSessionId(newId);
+      setMessages([]);
+      setMessage("");
+      setShowMoodCheckIn(true);
+      setShowCrisisAlert(false);
+      toast({
+        title: "New Session Started",
+        description: "Let's begin with a quick mood check-in.",
+      });
+      router.push(`/dashboard/therapy/chat?sessionId=${newId}`);
+      loadSessions();
+    } catch (e) {
+      // Fallback to lazy creation if API fails
+      setSessionId(null);
+      setMessages([]);
+      setMessage("");
+      setShowMoodCheckIn(true);
+      router.push("/dashboard/therapy/chat");
+    }
+  }, [router, toast, apiCreateSession, persona, loadSessions]);
 
   const handleSelectSession = useCallback(
     (id: string) => {

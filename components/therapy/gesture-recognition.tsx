@@ -6,6 +6,7 @@ import { analyzeHandGestures, GestureResult } from "@/utils/gesture-detection";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 interface GestureRecognitionProps {
   onGestureDetected: (result: GestureResult) => void;
@@ -187,45 +188,57 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
   }, [isWebcamEnabled, predictWebcam]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-4 bg-card w-full mb-4">
+    <div className="flex flex-col gap-3 rounded-[2rem] border border-primary/10 p-5 bg-card/40 backdrop-blur-xl w-full mb-8 shadow-sm">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="font-medium text-sm">Visual Intent Recognition</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="font-bold text-sm tracking-tight">
+            Visual Intent Recognition
+          </h3>
+          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider opacity-70">
             Sign simple gestures to communicate.
           </p>
         </div>
         <Button
-          variant={isWebcamEnabled ? "destructive" : "secondary"}
+          variant={isWebcamEnabled ? "destructive" : "outline"}
           size="sm"
           disabled={isLoading}
           onClick={isWebcamEnabled ? stopWebcam : enableWebcam}
-          className="h-8 gap-1"
+          className="h-9 rounded-full px-4 gap-2 border-primary/10 hover:bg-primary/5 transition-all"
         >
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : isWebcamEnabled ? (
             <EyeOff className="h-4 w-4" />
           ) : (
-            <Eye className="h-4 w-4" />
+            <Eye className="h-4 w-4 text-primary" />
           )}
-          {isWebcamEnabled ? "Stop Tracking" : "Start Camera"}
+          <span className="text-xs font-bold">
+            {isWebcamEnabled ? "Stop Tracking" : "Start Camera"}
+          </span>
         </Button>
       </div>
 
       {error ? (
-        <Alert variant="destructive" className="py-2">
+        <Alert
+          variant="destructive"
+          className="py-2 rounded-xl border-none bg-destructive/10 text-destructive"
+        >
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-xs">{error}</AlertDescription>
+          <AlertDescription className="text-xs font-medium">
+            {error}
+          </AlertDescription>
         </Alert>
       ) : null}
 
       <div
-        className={`relative rounded-md overflow-hidden bg-muted transition-all duration-300 ${isWebcamEnabled ? "h-48" : "h-0"}`}
+        className={cn(
+          "relative rounded-2xl overflow-hidden bg-background/50 transition-all duration-500 ease-in-out",
+          isWebcamEnabled ? "h-48 shadow-inner" : "h-0",
+        )}
       >
         <video
           ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover -scale-x-100 opacity-60"
+          className="absolute inset-0 w-full h-full object-cover -scale-x-100 opacity-40 grayscale"
           autoPlay
           playsInline
         />
@@ -234,8 +247,8 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
           className="absolute inset-0 w-full h-full object-cover -scale-x-100 z-10"
         />
         {isWebcamEnabled && (
-          <div className="absolute bottom-2 left-2 z-20 bg-black/60 text-white text-[10px] px-2 py-1 rounded">
-            Hold gesture for 1 second to send
+          <div className="absolute bottom-3 left-3 z-20 bg-background/80 backdrop-blur-md text-foreground text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border border-primary/10">
+            Hold gesture for 1s to send
           </div>
         )}
       </div>
