@@ -63,12 +63,13 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/waitlist"
+                  href="/therapist-onboarding"
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Join Waitlist
+                  Join as Therapist
                 </Link>
               </li>
+
             </ul>
           </div>
 

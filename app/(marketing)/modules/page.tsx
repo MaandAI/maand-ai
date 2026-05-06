@@ -1,8 +1,10 @@
+import React from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Brain, Accessibility, Glasses, TrendingUp, Users, Lock, ArrowRight, Bot } from "lucide-react"
+import { SectionWrapper } from "@/components/features/shared/section-wrapper"
 
 export default function ModulesPage() {
   const modules = [
@@ -108,90 +110,80 @@ export default function ModulesPage() {
 
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
-      <section className="py-16 md:py-24">
-        <div className="container max-w-7xl px-4 md:px-6">
-          <div className="text-center mb-12">
-            <Badge variant="secondary" className="mb-6">
-              Product Modules
-            </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-balance">
-              Comprehensive Mental Health Support
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto text-balance leading-relaxed">
-              Maand combines cutting-edge AI technology with evidence-based therapeutic approaches to provide effective,
-              accessible mental health support across all dimensions of care.
-            </p>
-          </div>
+      <SectionWrapper>
+        <div className="text-center mb-12">
+          <Badge variant="secondary" className="mb-6">
+            Product Modules
+          </Badge>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-balance">
+            Comprehensive Mental Health Support
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto text-balance leading-relaxed">
+            Maand combines cutting-edge AI technology with evidence-based therapeutic approaches to provide effective,
+            accessible mental health support across all dimensions of care.
+          </p>
         </div>
-      </section>
+      </SectionWrapper>
 
-      {/* Modules Grid */}
-      <section className="py-16 bg-muted/30">
-        <div className="container max-w-7xl px-4 md:px-6">
-          <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
-            {modules.map((module, index) => (
-              <Card key={index} className="border-2 hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-4">
-                    <module.icon className="h-12 w-12 text-primary shrink-0" />
-                    <Badge variant={module.status === "Coming 2026" ? "outline" : "secondary"}>{module.status}</Badge>
-                  </div>
-                  <CardTitle className="text-2xl mb-2">{module.title}</CardTitle>
-                  <CardDescription className="text-base leading-relaxed">{module.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="mb-6">
-                    <h4 className="font-semibold mb-3 text-sm">Key Features:</h4>
-                    <ul className="space-y-2">
-                      {module.features.map((feature, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-primary mt-1">•</span>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <Button variant="outline" className="w-full group bg-transparent" asChild>
-                    <Link href={module.learnMoreHref}>
-                      Learn More
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      <SectionWrapper backgroundColor="muted">
+        <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
+          {modules.map((module, index) => (
+            <Card key={index} className="border-2 hover:border-primary/50 transition-colors">
+              <CardHeader>
+                <div className="flex items-start justify-between mb-4">
+                  <module.icon className="h-12 w-12 text-primary shrink-0" />
+                  <Badge variant={module.status === "Coming 2026" ? "outline" : "secondary"}>{module.status}</Badge>
+                </div>
+                <CardTitle className="text-2xl mb-2">{module.title}</CardTitle>
+                <CardDescription className="text-base leading-relaxed">{module.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <h4 className="font-semibold mb-3 text-sm">Key Features:</h4>
+                  <ul className="space-y-2">
+                    {module.features.map((feature, i) => (
+                      <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <Button variant="outline" className="w-full group bg-transparent" asChild>
+                  <Link href={module.learnMoreHref}>
+                    Learn More
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </section>
+      </SectionWrapper>
 
-      {/* CTA Section */}
-      <section className="py-16">
-        <div className="container max-w-7xl px-4 md:px-6">
-          <Card className="bg-primary text-primary-foreground border-0">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-3xl md:text-4xl mb-4">Experience Maand in 2026</CardTitle>
-              <CardDescription className="text-primary-foreground/90 text-lg max-w-2xl mx-auto">
-                Join our priority waitlist to get early access when we launch after completing our comprehensive
-                clinical validation process.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" asChild>
-                <Link href="/#waitlist">Join Priority Waitlist</Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10"
-                asChild
-              >
-                <Link href="/about">Learn About Our Research</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+      <SectionWrapper>
+        <Card className="bg-primary text-primary-foreground border-0">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-3xl md:text-4xl mb-4">Experience Maand in 2026</CardTitle>
+            <CardDescription className="text-primary-foreground/90 text-lg max-w-2xl mx-auto">
+              Our platform is undergoing comprehensive clinical validation to ensure the highest standards of safety and efficacy.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" variant="secondary" asChild>
+              <Link href="/contact">Contact Our Team</Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10"
+              asChild
+            >
+              <Link href="/about">Learn About Our Research</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </SectionWrapper>
     </div>
   )
 }

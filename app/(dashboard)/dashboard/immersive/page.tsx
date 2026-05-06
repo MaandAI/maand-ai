@@ -111,20 +111,21 @@ export default function ImmersivePage() {
         ))}
       </div>
 
-      {/* Waitlist CTA */}
+      {/* Support CTA */}
       <Card className="border-primary/20">
         <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
           <div className="text-center md:text-left">
-            <h3 className="text-lg font-semibold mb-1">Be the first to experience immersive therapy</h3>
+            <h3 className="text-lg font-semibold mb-1">Learn more about our immersive research</h3>
             <p className="text-sm text-muted-foreground">
-              Join our waitlist to get early access when these features launch in 2026.
+              Discover how we're validating these technologies for clinical use.
             </p>
           </div>
-          <Button size="lg" className="shrink-0">
-            Join Waitlist
+          <Button size="lg" variant="outline" className="shrink-0" asChild>
+            <Link href="/about">Learn More</Link>
           </Button>
         </CardContent>
       </Card>
+
     </div>
   )
 }

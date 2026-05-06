@@ -5,7 +5,6 @@ import User from "../models/User";
 import Module from "../models/Module";
 import Notification from "../models/Notification";
 import Analytics from "../models/Analytics";
-import Waitlist from "../models/Waitlist";
 import ChatSession from "../models/ChatSession";
 import Message from "../models/Message";
 import LegacyProfile from "../models/LegacyProfile";
@@ -294,45 +293,6 @@ export async function seedInitialData() {
     { upsert: true },
   );
 
-  // 8. Seed Waitlist
-  await Waitlist.deleteMany({});
-  await Waitlist.create([
-    {
-      name: "Michael Corleone",
-      email: "michael@godfather.com",
-      interest: "Executive",
-      priority: "high",
-      status: "pending",
-    },
-    {
-      name: "Bruce Wayne",
-      email: "bruce@waynecorp.com",
-      interest: "Corporate",
-      priority: "medium",
-      status: "contacted",
-    },
-    {
-      name: "Diana Prince",
-      email: "diana@themyscira.gov",
-      interest: "Non-profit",
-      priority: "high",
-      status: "converted",
-    },
-    {
-      name: "Tony Stark",
-      email: "tony@stark.industries",
-      interest: "Technology",
-      priority: "high",
-      status: "pending",
-    },
-    {
-      name: "Peter Parker",
-      email: "peter@dailybugle.com",
-      interest: "Individual",
-      priority: "low",
-      status: "pending",
-    },
-  ]);
 
   console.log("Comprehensive seeding complete! MongoDB is fully populated.");
 }

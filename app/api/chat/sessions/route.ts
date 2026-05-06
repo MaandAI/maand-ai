@@ -5,7 +5,11 @@ import { ChatService } from "@/backend/services/chat.service";
 export async function GET(req: NextRequest) {
   return withAuth(req, async (req, user) => {
     try {
-      const sessions = await ChatService.getSessions(user.id);
+      const { searchParams } = new URL(req.url);
+      const status = searchParams.get("status");
+      const query = status ? { status } : {};
+
+      const sessions = await ChatService.getSessions(user.id, query);
       
       // Enhance sessions with a temporary title if not present
       const enhancedSessions = sessions.map((s: any) => ({

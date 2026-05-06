@@ -68,13 +68,6 @@ export interface OutcomeScore {
 }
 
 // Administration
-export interface WaitlistEntry {
-  id?: string;
-  email: string;
-  name?: string;
-  status: "pending" | "contacted" | "converted";
-  createdAt: string | Date;
-}
 
 export interface TherapyModule {
   id: string;

@@ -15,6 +15,7 @@ import {
   Bot,
   Glasses,
   Lock,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -24,6 +25,8 @@ import { useState } from "react";
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { name: "Modules", href: "/dashboard/modules", icon: Brain },
+  { name: "Chat Sessions", href: "/dashboard/sessions", icon: MessageSquare },
+  { name: "Clinical Reports", href: "/dashboard/reports", icon: FileText },
   { name: "AI Therapy", href: "/dashboard/therapy/chat", icon: MessageSquare },
   { name: "Therapy Avatar", href: "/dashboard/avatar", icon: Bot },
   {

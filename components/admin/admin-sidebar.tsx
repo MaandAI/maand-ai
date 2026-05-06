@@ -18,7 +18,7 @@ import { useState } from "react";
 const navigation = [
   { name: "Overview", href: "/admin", icon: LayoutDashboard },
   { name: "Users", href: "/admin/users", icon: Users },
-  { name: "Waitlist", href: "/admin/waitlist", icon: UserCheck },
+  { name: "Therapist Requests", href: "/admin/therapists/requests", icon: UserCheck },
   { name: "Analytics", href: "/admin/analytics", icon: Activity },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];

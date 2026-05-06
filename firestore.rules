@@ -16,12 +16,6 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Top Level Collections
-    match /waitlist/{entryId} {
-      allow read: if isAdmin();
-      allow create: if true; // Public can join waitlist
-      allow update, delete: if isAdmin();
-    }
     
     match /therapy_modules/{moduleId} {
       allow read: if isAuthenticated();

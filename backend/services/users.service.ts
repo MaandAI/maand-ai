@@ -52,4 +52,28 @@ export class UsersService {
       lastActive: (user as any).updatedAt || user.createdAt,
     } as UserProfile;
   }
+
+  static async updateUser(id: string, data: Partial<UserProfile>): Promise<UserProfile | null> {
+    await dbConnect();
+    const user = await User.findByIdAndUpdate(id, { $set: data }, { new: true });
+    if (!user) return null;
+    return {
+      id: user._id.toString(),
+      uid: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      displayName: user.name,
+      role: user.role,
+      status: user.status,
+      subscription: (user as any).subscription || "free",
+      createdAt: user.createdAt,
+      lastActive: (user as any).updatedAt || user.createdAt,
+    } as UserProfile;
+  }
+
+  static async deleteUser(id: string): Promise<boolean> {
+    await dbConnect();
+    const result = await User.findByIdAndDelete(id);
+    return !!result;
+  }
 }

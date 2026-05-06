@@ -5,6 +5,9 @@ import {
   UserActivity,
   RevenueData,
 } from "../validators/dashboard.schema";
+import ChatSession from "@/models/ChatSession";
+import Report from "@/models/Report";
+import UserModuleProgress from "@/models/UserModuleProgress";
 
 export class DashboardService {
   static async getOverviewStats(): Promise<DashboardStats | null> {
@@ -20,7 +23,7 @@ export class DashboardService {
     if (!overview) return [];
     return (overview.userActivity || []).map((item: any) => ({
       id: item._id?.toString(),
-      ...item.toObject ? item.toObject() : item,
+      ...(item.toObject ? item.toObject() : item),
     })) as UserActivity[];
   }
 
@@ -30,7 +33,33 @@ export class DashboardService {
     if (!overview) return [];
     return (overview.revenueData || []).map((item: any) => ({
       id: item._id?.toString(),
-      ...item.toObject ? item.toObject() : item,
+      ...(item.toObject ? item.toObject() : item),
     })) as RevenueData[];
+  }
+
+  static async getUserSummary(userId: string) {
+    await dbConnect();
+
+    const [
+      totalSessions,
+      activeSessions,
+      completedSessions,
+      totalReports,
+      activeModules,
+    ] = await Promise.all([
+      ChatSession.countDocuments({ userId }),
+      ChatSession.countDocuments({ userId, status: "active" }),
+      ChatSession.countDocuments({ userId, status: "completed" }),
+      Report.countDocuments({ userId }),
+      UserModuleProgress.countDocuments({ userId, status: "in-progress" }),
+    ]);
+
+    return {
+      totalSessions,
+      activeSessions,
+      completedSessions,
+      totalReports,
+      activeModules,
+    };
   }
 }

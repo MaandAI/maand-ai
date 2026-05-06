@@ -30,5 +30,49 @@ export function useUsersAPI() {
     }
   }, [fetchUsers]);
 
-  return { users, loading, error, refresh: fetchUsers };
+  const updateUser = async (id: string, data: any) => {
+    try {
+      await apiClient.patch(`/users/${id}`, data);
+      await fetchUsers();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating user", err);
+      return { success: false, error: err.response?.data?.error || "Failed to update user" };
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      await apiClient.delete(`/users/${id}`);
+      await fetchUsers();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error deleting user", err);
+      return { success: false, error: err.response?.data?.error || "Failed to delete user" };
+    }
+  };
+
+  const createUser = async (data: any) => {
+    try {
+      const response = await apiClient.post("/admin/users", data);
+      await fetchUsers();
+      return { success: true, data: response.data.data };
+    } catch (err: any) {
+      console.error("Error creating user", err);
+      return { success: false, error: err.response?.data?.error || "Failed to create user" };
+    }
+  };
+
+  const batchCreateUsers = async (data: any[]) => {
+    try {
+      const response = await apiClient.post("/admin/users", data);
+      await fetchUsers();
+      return { success: true, data: response.data.data };
+    } catch (err: any) {
+      console.error("Error batch creating users", err);
+      return { success: false, error: err.response?.data?.error || "Failed to batch create users" };
+    }
+  };
+
+  return { users, loading, error, refresh: fetchUsers, updateUser, deleteUser, createUser, batchCreateUsers };
 }

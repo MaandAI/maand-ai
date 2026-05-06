@@ -17,7 +17,6 @@ export function Header() {
     { href: "/about", label: "About" },
     { href: "/modules", label: "Modules" },
     { href: "/pricing", label: "Pricing" },
-    { href: "/waitlist", label: "Waitlist" },
     { href: "/contact", label: "Contact" },
   ];
 

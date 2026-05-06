@@ -1,7 +1,7 @@
 import type React from "react";
 // Marketing site layout with header and footer
-import { Header } from "@/components/marketing/header";
-import { Footer } from "@/components/marketing/footer";
+import { Header } from "@/components/features/shared/header";
+import { Footer } from "@/components/features/shared/footer";
 
 export default function MarketingLayout({
   children,

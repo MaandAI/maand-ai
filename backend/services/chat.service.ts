@@ -1,6 +1,7 @@
 import dbConnect from "@/lib/mongodb";
 import ChatSession from "@/models/ChatSession";
 import Message from "@/models/Message";
+import Report from "@/models/Report";
 import { encryptData, decryptData } from "@/utils/encryption";
 import { detectCrisis } from "../utils/crisis-detector";
 import {
@@ -28,9 +29,9 @@ export class ChatService {
     return session._id.toString();
   }
 
-  static async getSessions(userId: string): Promise<IChatSession[]> {
+  static async getSessions(userId: string, query: any = {}): Promise<IChatSession[]> {
     await dbConnect();
-    const sessions = await ChatSession.find({ userId }).sort({ updatedAt: -1 });
+    const sessions = await ChatSession.find({ userId, ...query }).sort({ updatedAt: -1 });
 
     return sessions.map((doc) => ({
       id: doc._id.toString(),
@@ -141,7 +142,7 @@ export class ChatService {
 
     let reportContent = "";
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const result = await model.generateContent(prompt);
       reportContent = result.response
         .text()
@@ -149,11 +150,11 @@ export class ChatService {
         .trim();
     } catch (e) {
       console.warn(
-        "Gemini 1.5 Flash failed for report, falling back to Gemini 1.5 Pro",
+        "Gemini 2.5 Flash failed for report, falling back to Gemini 2.5 Pro",
         e,
       );
       const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-1.5-pro",
+        model: "gemini-2.5-pro",
       });
       const result = await fallbackModel.generateContent(
         `${prompt}\n\nReturn ONLY the JSON.`,
@@ -180,7 +181,25 @@ export class ChatService {
       );
     })) as any;
 
-    // 4. Update Session in DB
+    // 4. Create Report in DB
+    try {
+      const parsedReport = JSON.parse(reportContent);
+      await Report.create({
+        userId,
+        sessionId,
+        title: session.title || `Report for Session ${new Date().toLocaleDateString()}`,
+        summary: parsedReport.summary,
+        emotionalTrends: parsedReport.emotional_trends,
+        keyTopics: parsedReport.key_topics,
+        recommendations: parsedReport.recommendations,
+        riskAssessment: parsedReport.risk_assessment,
+        contentUrl: uploadRes.secure_url,
+      });
+    } catch (err) {
+      console.error("Failed to create Report document:", err);
+    }
+
+    // 5. Update Session in DB
     session.status = "completed";
     session.reportUrl = uploadRes.secure_url;
     session.reportId = uploadRes.public_id;

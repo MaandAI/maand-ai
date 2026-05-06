@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
   Brain,
@@ -15,6 +14,8 @@ import {
   Clock,
   Activity,
   MessageSquare,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import { useModulesAPI } from "@/hooks/api/useModules";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -22,6 +23,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { useDashboardSummary } from "@/hooks/api/useDashboardSummary";
 
 import { useChatAPI } from "@/hooks/api/useChat";
 import { useEffect, useState } from "react";
@@ -30,6 +32,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 function DashboardContent() {
+  const { summary, loading: summaryLoading } = useDashboardSummary();
   const { modules, loading: modulesLoading } = useModulesAPI();
   const { getSessions, loading: sessionsLoading } = useChatAPI();
   const [recentSessions, setRecentSessions] = useState<ChatSession[]>([]);
@@ -45,39 +48,35 @@ function DashboardContent() {
   const stats = [
     {
       label: "Total Sessions",
-      value: "24",
-      icon: Activity,
-      change: "+12%",
-      changeType: "positive" as const,
+      value: summary?.totalSessions || "0",
+      icon: MessageSquare,
       color: "text-blue-500",
       bg: "bg-blue-500/10",
+      href: "/dashboard/sessions"
     },
     {
-      label: "Active Modules",
-      value: "3",
-      icon: Brain,
-      change: "+2",
-      changeType: "positive" as const,
-      color: "text-purple-500",
-      bg: "bg-purple-500/10",
-    },
-    {
-      label: "Completed Goals",
-      value: "8",
-      icon: CheckCircle2,
-      change: "+3",
-      changeType: "positive" as const,
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
-    },
-    {
-      label: "Hours This Week",
-      value: "6.5",
-      icon: Clock,
-      change: "+1.2h",
-      changeType: "positive" as const,
+      label: "Ongoing Sessions",
+      value: summary?.activeSessions || "0",
+      icon: Activity,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
+      href: "/dashboard/sessions?status=active"
+    },
+    {
+      label: "Completed",
+      value: summary?.completedSessions || "0",
+      icon: CheckCircle2,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10",
+      href: "/dashboard/sessions?status=completed"
+    },
+    {
+      label: "Clinical Reports",
+      value: summary?.totalReports || "0",
+      icon: FileText,
+      color: "text-purple-500",
+      bg: "bg-purple-500/10",
+      href: "/dashboard/reports"
     },
   ];
 
@@ -86,16 +85,16 @@ function DashboardContent() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-            Welcome Back
+            Wellness Dashboard
           </h1>
           <p className="text-muted-foreground text-lg mt-1">
-            Your mental wellness journey is progressing beautifully.
+            Real-time insights into your therapeutic journey.
           </p>
         </div>
         <Button asChild className="rounded-full shadow-lg shadow-primary/20">
           <Link href="/dashboard/therapy/chat">
             <MessageSquare className="mr-2 h-4 w-4" />
-            Start New Session
+            New Session
           </Link>
         </Button>
       </div>
@@ -109,203 +108,123 @@ function DashboardContent() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Card className="border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-                  {stat.label}
-                </CardTitle>
-                <div className={cn("p-2 rounded-xl", stat.bg)}>
-                  <stat.icon className={cn("h-4 w-4", stat.color)} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold tracking-tight">
-                  {stat.value}
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-bold border-none px-0",
-                      stat.changeType === "positive"
-                        ? "text-emerald-500"
-                        : "text-red-500",
-                    )}
-                  >
-                    {stat.change}
-                  </Badge>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                    vs last month
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href={stat.href}>
+              <Card className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
+                    {stat.label}
+                  </CardTitle>
+                  <div className={cn("p-2 rounded-xl transition-transform group-hover:scale-110", stat.bg)}>
+                    <stat.icon className={cn("h-4 w-4", stat.color)} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end justify-between">
+                    <div className="text-3xl font-bold tracking-tight">
+                      {summaryLoading ? <Skeleton className="h-9 w-12" /> : stat.value}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           </motion.div>
         ))}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Active Modules */}
+        {/* Recent Activity / Sessions */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold tracking-tight">Active Modules</h3>
+            <h3 className="text-xl font-bold tracking-tight">Recent Sessions</h3>
             <Button
               variant="ghost"
               size="sm"
               asChild
               className="text-primary hover:text-primary hover:bg-primary/5"
             >
-              <Link href="/dashboard/modules">View All</Link>
+              <Link href="/dashboard/sessions">View All</Link>
             </Button>
           </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {modulesLoading
-              ? [1, 2].map((i) => (
-                  <Skeleton key={i} className="h-48 w-full rounded-2xl" />
-                ))
-              : modules.slice(0, 2).map((module) => (
-                  <Card
-                    key={module.id}
-                    className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm overflow-hidden rounded-2xl"
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                            {module.name}
-                          </CardTitle>
-                          <CardDescription className="line-clamp-2">
-                            {module.description}
-                          </CardDescription>
-                        </div>
-                        <Badge
-                          className={cn(
-                            "rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider",
-                            module.status === "completed"
-                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                              : module.status === "in-progress"
-                                ? "bg-primary/10 text-primary border-primary/20"
-                                : "bg-muted text-muted-foreground border-muted-foreground/20",
-                          )}
-                          variant="outline"
-                        >
-                          {module.status}
-                        </Badge>
+          <div className="grid gap-4">
+            {sessionsLoading ? (
+              [1, 2].map((i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)
+            ) : recentSessions.length > 0 ? (
+              recentSessions.map((session) => (
+                <Card key={session.id} className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm overflow-hidden">
+                  <div className="p-5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                        <MessageSquare className="h-6 w-6" />
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                          <span>Overall Progress</span>
-                          <span className="text-foreground">
-                            {module.progress}%
-                          </span>
-                        </div>
-                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${module.progress}%` }}
-                            transition={{ duration: 1, ease: "easeOut" }}
-                            className="h-full bg-primary rounded-full"
-                          />
-                        </div>
+                      <div>
+                        <p className="font-bold text-lg group-hover:text-primary transition-colors">{session.title}</p>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(session.updatedAt || session.createdAt || new Date()), "PPP")}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/30 p-3 rounded-xl border border-muted-foreground/5">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>
-                          {module.sessionsCompleted} of {module.totalSessions}{" "}
-                          sessions completed
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={session.status === "completed" ? "secondary" : "default"} className="capitalize">
+                        {session.status === "active" ? "Ongoing" : session.status}
+                      </Badge>
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link href={`/dashboard/therapy/chat?sessionId=${session.id}`}>
+                          <ChevronRight className="h-5 w-5" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <Card className="p-12 text-center border-dashed bg-transparent">
+                <p className="text-muted-foreground">No recent sessions found.</p>
+                <Button className="mt-4" asChild>
+                  <Link href="/dashboard/therapy/chat">Start your first session</Link>
+                </Button>
+              </Card>
+            )}
           </div>
         </div>
 
-        {/* Recent Sessions */}
+        {/* Clinical Reports Preview */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold tracking-tight">
-              Recent Sessions
-            </h3>
+            <h3 className="text-xl font-bold tracking-tight">Latest Reports</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-primary hover:text-primary hover:bg-primary/5"
+            >
+              <Link href="/dashboard/reports">See All</Link>
+            </Button>
           </div>
-          <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm rounded-2xl overflow-hidden">
-            <CardContent className="p-0">
-              {sessionsLoading ? (
-                <div className="p-4 space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-xl" />
-                  ))}
-                </div>
-              ) : recentSessions.length > 0 ? (
-                <div className="divide-y divide-border/50">
-                  {recentSessions.map((session) => (
-                    <Link
-                      key={session.id}
-                      href={`/dashboard/therapy/chat?sessionId=${session.id}`}
-                      className="flex items-center gap-4 p-4 hover:bg-primary/5 transition-colors group"
-                    >
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <MessageSquare className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">
-                          {session.title || "Therapy Session"}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" />
-                          {session.updatedAt
-                            ? format(
-                                new Date(session.updatedAt),
-                                "MMM d, h:mm a",
-                              )
-                            : "Recently"}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full text-[10px] uppercase font-bold"
-                      >
-                        Continue
-                      </Badge>
-                    </Link>
-                  ))}
+          <Card className="border-none shadow-sm bg-card/50 backdrop-blur-sm rounded-2xl overflow-hidden p-2">
+            <CardContent className="p-4 space-y-4">
+              {summaryLoading ? (
+                 <Skeleton className="h-20 w-full" />
+              ) : summary?.totalReports === 0 ? (
+                <div className="text-center py-10 opacity-50">
+                  <FileText className="h-10 w-10 mx-auto mb-2" />
+                  <p className="text-xs uppercase font-bold tracking-widest">No reports yet</p>
                 </div>
               ) : (
-                <div className="p-10 text-center space-y-4">
-                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground opacity-50">
-                    <MessageSquare className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold">No sessions yet</p>
-                    <p className="text-xs text-muted-foreground">
-                      Start your first session today.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="rounded-full"
-                  >
-                    <Link href="/dashboard/therapy/chat">Start Chat</Link>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    You have {summary?.totalReports} generated clinical reports ready for review.
+                  </p>
+                  <Button variant="outline" className="w-full justify-between group" asChild>
+                    <Link href="/dashboard/reports">
+                      View Clinical Portfolio
+                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Link>
                   </Button>
                 </div>
               )}
             </CardContent>
-            {recentSessions.length > 0 && (
-              <div className="p-3 border-t bg-muted/5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-primary"
-                  asChild
-                >
-                  <Link href="/dashboard/therapy/chat">View All Sessions</Link>
-                </Button>
-              </div>
-            )}
           </Card>
         </div>
       </div>
