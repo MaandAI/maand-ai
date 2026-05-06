@@ -131,7 +131,7 @@ function UsersContent() {
               <DialogHeader>
                 <DialogTitle>Batch User Import</DialogTitle>
                 <DialogDescription>
-                  Paste a JSON array of users. Format: [{"name": "...", "email": "...", "role": "user"}]
+                  Paste a JSON array of users. Format: {'[{"name": "...", "email": "...", "role": "user"}]'}
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
