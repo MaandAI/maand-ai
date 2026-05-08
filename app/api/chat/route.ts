@@ -65,6 +65,14 @@ export async function POST(req: NextRequest) {
     let sessionId = clientSessionId;
     if (!sessionId) {
       sessionId = await ChatService.createSession(userId, persona || null);
+    } else {
+      const existingSession = await ChatSession.findById(sessionId);
+      if (existingSession && existingSession.status === "completed") {
+        return NextResponse.json(
+          { error: "This session has been completed and is now read-only." },
+          { status: 403 }
+        );
+      }
     }
 
     // 1. Safety Check (Immediate execution)

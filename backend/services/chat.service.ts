@@ -10,6 +10,7 @@ import {
 } from "../validators/chat.schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import cloudinary from "@/lib/cloudinary";
+import { NotificationService } from "./notification.service";
 
 export class ChatService {
   static async createSession(
@@ -194,6 +195,7 @@ export class ChatService {
         recommendations: parsedReport.recommendations,
         riskAssessment: parsedReport.risk_assessment,
         contentUrl: uploadRes.secure_url,
+        isFavorite: session.isFavorite || false,
       });
     } catch (err) {
       console.error("Failed to create Report document:", err);
@@ -204,6 +206,11 @@ export class ChatService {
     session.reportUrl = uploadRes.secure_url;
     session.reportId = uploadRes.public_id;
     await session.save();
+
+    // 6. Notify User
+    await NotificationService.notifySessionCompleted(userId, sessionId);
+    // Fetch the newly created report for its ID if needed, or just notify general report generation
+    await NotificationService.notifyReportGenerated(userId, sessionId); 
 
     return session;
   }

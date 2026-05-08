@@ -20,10 +20,13 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { apiClient } from "@/lib/api-client";
+import { DownloadPDFButton } from "@/components/reports/download-pdf-button";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
 
   const fetchSessions = async () => {
@@ -76,13 +79,23 @@ export default function SessionsPage() {
           </div>
           
           <div className="flex items-center gap-3 self-end md:self-center">
-            {session.status === "completed" && session.reportUrl && (
-              <Button variant="outline" size="sm" asChild className="gap-2 rounded-full border-primary/20 hover:bg-primary/5">
-                <Link href="/dashboard/reports">
-                  <FileText className="h-4 w-4" />
-                  View Report
-                </Link>
-              </Button>
+            {session.status === "completed" && session.reportId && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" asChild className="gap-2 rounded-full border-primary/20 hover:bg-primary/5">
+                  <Link href="/dashboard/reports">
+                    <FileText className="h-4 w-4" />
+                    View Report
+                  </Link>
+                </Button>
+                <DownloadPDFButton
+                  reportId={session.reportId}
+                  user={profile}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  showText={false}
+                />
+              </div>
             )}
             <Button size="sm" asChild className="gap-2 rounded-full px-5 shadow-lg shadow-primary/10">
               <Link href={`/dashboard/therapy/chat?sessionId=${session.id}`}>

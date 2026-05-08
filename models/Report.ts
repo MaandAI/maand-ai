@@ -12,6 +12,7 @@ const ReportSchema = new Schema(
     riskAssessment: { type: String },
     contentUrl: { type: String, required: true }, // URL to the full JSON report in Cloudinary
     status: { type: String, enum: ["generated", "reviewed"], default: "generated" },
+    isFavorite: { type: Boolean, default: false },
   },
   {
     timestamps: true,

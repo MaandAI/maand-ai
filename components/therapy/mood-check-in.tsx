@@ -1,27 +1,37 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { moodOptions, type Mood } from "@/lib/mock/therapy"
-import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { moodOptions, type Mood } from "@/lib/mock/therapy";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
-export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: string) => void }) {
-  const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
-  const [note, setNote] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function MoodCheckIn({
+  onComplete,
+}: {
+  onComplete?: (mood: Mood, note?: string) => void;
+}) {
+  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
+  const [note, setNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = () => {
-    if (!selectedMood) return
+    if (!selectedMood) return;
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     setTimeout(() => {
-      onComplete?.(selectedMood, note)
-      setIsSubmitting(false)
-    }, 500)
-  }
+      onComplete?.(selectedMood, note);
+      setIsSubmitting(false);
+    }, 500);
+  };
 
   return (
     <Card className="border-none shadow-none bg-transparent max-w-2xl mx-auto w-full">
@@ -50,7 +60,7 @@ export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: s
               )}
             >
               {selectedMood?.id === mood.id && (
-                <motion.div 
+                <motion.div
                   layoutId="activeMood"
                   className="absolute inset-0 rounded-2xl md:rounded-[2rem] ring-2 ring-primary ring-offset-2 ring-offset-background z-0"
                 />
@@ -58,10 +68,14 @@ export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: s
               <span className="text-2xl md:text-5xl drop-shadow-sm group-hover:drop-shadow-md transition-all z-10">
                 {mood.emoji}
               </span>
-              <span className={cn(
-                "text-[8px] md:text-xs font-black uppercase tracking-widest transition-colors z-10 text-center",
-                selectedMood?.id === mood.id ? "text-primary" : "text-foreground/60 group-hover:text-foreground"
-              )}>
+              <span
+                className={cn(
+                  "text-[8px] md:text-xs font-black uppercase tracking-widest transition-colors z-10 text-center",
+                  selectedMood?.id === mood.id
+                    ? "text-primary"
+                    : "text-foreground/60 group-hover:text-foreground",
+                )}
+              >
                 {mood.label}
               </span>
             </motion.button>
@@ -70,7 +84,10 @@ export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: s
 
         {/* Optional Note */}
         <div className="space-y-3 md:space-y-4 max-w-xl mx-auto w-full">
-          <label htmlFor="mood-note" className="text-[9px] md:text-[10px] font-black text-center block text-foreground/50 uppercase tracking-[0.2em]">
+          <label
+            htmlFor="mood-note"
+            className="text-[9px] md:text-[10px] font-black text-center block text-foreground/50 uppercase tracking-[0.2em]"
+          >
             Anything on your mind? (Optional)
           </label>
           <Textarea
@@ -84,9 +101,9 @@ export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: s
 
         {/* Submit Button */}
         <div className="flex justify-center pt-2 md:pt-4">
-          <Button 
-            onClick={handleSubmit} 
-            disabled={!selectedMood || isSubmitting} 
+          <Button
+            onClick={handleSubmit}
+            disabled={!selectedMood || isSubmitting}
             size="lg"
             className="rounded-full px-8 md:px-12 h-12 md:h-14 text-sm md:text-base font-bold shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95 w-full sm:w-auto"
           >
@@ -95,5 +112,5 @@ export function MoodCheckIn({ onComplete }: { onComplete?: (mood: Mood, note?: s
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

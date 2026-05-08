@@ -23,9 +23,13 @@ import {
   BrainCircuit,
   MessageSquare,
   AlertTriangle,
+  CheckCircle2,
+  Star,
+  History,
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiClient } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -37,12 +41,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
+import { DownloadPDFButton } from "@/components/reports/download-pdf-button";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchReports = async () => {
     setLoading(true);
@@ -65,6 +74,31 @@ export default function ReportsPage() {
     setIsModalOpen(true);
   };
 
+  const toggleFavorite = async (e: React.MouseEvent, report: any) => {
+    e.stopPropagation();
+    try {
+      const newStatus = !report.isFavorite;
+      const res = await apiClient.patch(`/reports/${report._id}/favorite`, {
+        isFavorite: newStatus
+      });
+      if (res.data.success) {
+        setReports(prev => prev.map(r => r._id === report._id ? { ...r, isFavorite: newStatus } : r));
+        if (selectedReport?._id === report._id) {
+          setSelectedReport({ ...selectedReport, isFavorite: newStatus });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to toggle favorite", err);
+    }
+  };
+
+  const filteredReports = reports.filter(r => {
+    const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         r.summary.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filter === "all" || r.isFavorite;
+    return matchesSearch && matchesFilter;
+  });
+
   return (
     <div className="space-y-8 pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -76,6 +110,44 @@ export default function ReportsPage() {
             Detailed insights and analysis from your therapeutic sessions
           </p>
         </div>
+
+        <div className="flex items-center gap-3 bg-muted/30 p-1 rounded-2xl border border-primary/5">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input 
+              type="text"
+              placeholder="Search reports..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none focus:ring-0 text-sm pl-9 pr-4 py-2 w-48 md:w-64"
+            />
+          </div>
+          <div className="flex gap-1 h-full">
+            <Button
+              variant={filter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilter("all")}
+              className={cn(
+                "rounded-xl text-[10px] font-bold uppercase tracking-widest px-4 h-9",
+                filter === "all" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
+              )}
+            >
+              All
+            </Button>
+            <Button
+              variant={filter === "favorites" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setFilter("favorites")}
+              className={cn(
+                "rounded-xl text-[10px] font-bold uppercase tracking-widest px-4 h-9 flex items-center gap-2",
+                filter === "favorites" ? "bg-background shadow-sm text-amber-500" : "text-muted-foreground"
+              )}
+            >
+              <Star className={cn("h-3 w-3", filter === "favorites" && "fill-amber-500")} />
+              Saved
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -83,12 +155,23 @@ export default function ReportsPage() {
           [1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-64 w-full rounded-2xl" />
           ))
-        ) : reports.length > 0 ? (
-          reports.map((report) => (
+        ) : filteredReports.length > 0 ? (
+          filteredReports.map((report) => (
             <Card
               key={report._id}
-              className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm overflow-hidden flex flex-col"
+              className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm overflow-hidden flex flex-col relative"
             >
+               <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "absolute top-4 right-4 z-10 rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
+                  report.isFavorite ? "opacity-100 text-amber-500 bg-amber-500/10" : "bg-background/50 backdrop-blur-sm"
+                )}
+                onClick={(e) => toggleFavorite(e, report)}
+              >
+                <Star className={cn("h-4 w-4", report.isFavorite && "fill-amber-500")} />
+              </Button>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -131,15 +214,24 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="pt-0">
+              <CardFooter className="pt-0 flex items-center justify-between gap-2 border-t border-primary/5 mt-auto bg-primary/[0.02] p-4">
                 <Button
                   variant="ghost"
-                  className="w-full justify-between text-primary font-bold text-xs uppercase tracking-widest group/btn"
+                  size="sm"
+                  className="text-primary font-bold text-xs uppercase tracking-widest group/btn hover:bg-transparent p-0 h-auto"
                   onClick={() => openReport(report)}
                 >
-                  View Full Insights
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-1" />
+                  View Insights
+                  <ArrowRight className="h-3.5 w-3.5 ml-1.5 transition-transform group-hover/btn:translate-x-1" />
                 </Button>
+                <DownloadPDFButton
+                  report={report}
+                  user={profile}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-primary/10 hover:bg-primary/5 hover:text-primary transition-all"
+                  showText={false}
+                />
               </CardFooter>
             </Card>
           ))
@@ -165,9 +257,23 @@ export default function ReportsPage() {
           {selectedReport && (
             <div className="flex flex-col h-full bg-background/95 backdrop-blur-xl">
               <div className="p-8 border-b bg-primary/5">
-                <div className="flex items-center gap-3 text-primary font-bold text-xs uppercase tracking-widest mb-2">
-                  <ShieldCheck className="h-4 w-4" />
-                  Clinical Evaluation
+                <div className="flex items-center justify-between gap-3 text-primary font-bold text-xs uppercase tracking-widest mb-2">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck className="h-4 w-4" />
+                    Clinical Evaluation
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "rounded-full gap-2 px-3",
+                      selectedReport.isFavorite ? "text-amber-500 bg-amber-500/10" : "text-muted-foreground"
+                    )}
+                    onClick={(e) => toggleFavorite(e, selectedReport)}
+                  >
+                    <Star className={cn("h-4 w-4", selectedReport.isFavorite && "fill-amber-500")} />
+                    {selectedReport.isFavorite ? "Saved" : "Save to Portfolio"}
+                  </Button>
                 </div>
                 <DialogTitle className="text-3xl font-extrabold mb-1">
                   {selectedReport.title}
@@ -273,7 +379,7 @@ export default function ReportsPage() {
                 </div>
               </ScrollArea>
 
-              <div className="p-4 border-t bg-muted/20 flex justify-end gap-3">
+              <div className="p-4 border-t bg-muted/20 flex flex-wrap justify-end gap-3">
                 <Button
                   variant="outline"
                   className="rounded-lg"
@@ -282,14 +388,20 @@ export default function ReportsPage() {
                   Close Portfolio
                 </Button>
                 <Button
+                  variant="secondary"
                   className="rounded-lg gap-2"
                   onClick={() =>
                     window.open(selectedReport.contentUrl, "_blank")
                   }
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Source Document (JSON)
+                  JSON
                 </Button>
+                <DownloadPDFButton
+                  report={selectedReport}
+                  user={profile}
+                  className="rounded-lg"
+                />
               </div>
             </div>
           )}

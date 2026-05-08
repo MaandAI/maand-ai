@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AppearanceManager } from "@/components/providers/appearance-manager";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -65,7 +66,10 @@ export default function RootLayout({
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_var(--background)_100%)]" />
             <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
           </div>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AppearanceManager />
+            {children}
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
         <Analytics />

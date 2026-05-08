@@ -155,6 +155,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+  }
+  
+  html {
+    scroll-behavior: smooth;
   }
 
   /* Custom Premium Scrollbar */
@@ -185,6 +190,26 @@
     scrollbar-width: thin;
     scrollbar-color: oklch(var(--primary) / 0.1) transparent;
   }
+
+  /* High Contrast Accessibility Overrides */
+  .high-contrast {
+    --background: #ffffff;
+    --foreground: #000000;
+    --card: #ffffff;
+    --border: #000000;
+    --primary: #0000ff;
+    --primary-foreground: #ffffff;
+    --muted-foreground: #000000;
+  }
+
+  .high-contrast .glass-premium,
+  .high-contrast .bg-card\/50 {
+    @apply bg-white opacity-100 backdrop-blur-none border-2 border-black shadow-none;
+  }
+
+  .high-contrast .text-muted-foreground {
+    @apply text-black font-black opacity-100;
+  }
 }
 
 @layer utilities {
@@ -196,4 +221,25 @@
   .hide-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
   }
+
+  .glass-premium {
+    @apply bg-background/60 backdrop-blur-xl border border-primary/5 shadow-sm;
+  }
+
+  .premium-shadow {
+    box-shadow: 0 10px 30px -5px rgba(var(--primary-rgb, 0, 0, 0), 0.1),
+                0 4px 10px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .clinical-gradient {
+    @apply bg-gradient-to-br from-primary/10 via-background to-secondary/5;
+  }
+
+  .text-clinical {
+    @apply tracking-tight font-black;
+  }
+}
+
+:root {
+  --primary-rgb: 85, 110, 230; /* Example RGB for Primary oklch(0.55 0.12 250) */
 }

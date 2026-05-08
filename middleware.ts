@@ -30,13 +30,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 2. Redirect authenticated users away from auth pages
-  if (token && isAuthPage) {
+  // 2. 2FA Enforcement: If 2FA is required, redirect to 2FA verification page
+  if (token && (token as any).requires2FA && path !== "/auth/2fa" && !path.startsWith("/api/auth")) {
+     // Allow logout during 2FA
+     if (path !== "/api/auth/signout") {
+       return NextResponse.redirect(new URL("/auth/2fa", req.url));
+     }
+  }
+
+  // 3. Redirect authenticated users away from auth pages
+  if (token && isAuthPage && !(token as any).requires2FA) {
     const redirectUrl = token.role === "admin" ? "/admin" : "/dashboard";
     return NextResponse.redirect(new URL(redirectUrl, req.url));
   }
 
-  // 3. RBAC: Only Admin can access /admin
+  // 4. RBAC: Only Admin can access /admin
   if (token && isAdminPage && token.role !== "admin") {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -44,7 +52,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // 4. RBAC: Therapist and Admin can access /therapist
+  // 5. RBAC: Therapist and Admin can access /therapist
   if (token && isTherapistPage && token.role !== "therapist" && token.role !== "admin") {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

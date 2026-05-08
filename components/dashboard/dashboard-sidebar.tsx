@@ -16,29 +16,39 @@ import {
   Glasses,
   Lock,
   FileText,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
-const navigation = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Modules", href: "/dashboard/modules", icon: Brain },
-  { name: "Chat Sessions", href: "/dashboard/sessions", icon: MessageSquare },
-  { name: "Clinical Reports", href: "/dashboard/reports", icon: FileText },
-  { name: "AI Therapy", href: "/dashboard/therapy/chat", icon: MessageSquare },
-  { name: "Therapy Avatar", href: "/dashboard/avatar", icon: Bot },
+const groups = [
   {
-    name: "Immersive",
-    href: "/dashboard/immersive",
-    icon: Glasses,
-    locked: true,
+    title: "Main",
+    items: [
+      { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Modules", href: "/dashboard/modules", icon: Brain },
+      { name: "Clinical Reports", href: "/dashboard/reports", icon: FileText },
+    ]
   },
-  { name: "Profile", href: "/dashboard/profile", icon: User },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  { name: "Notifications", href: "/dashboard/notifications", icon: Bell },
-  { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+  {
+    title: "Therapeutic",
+    items: [
+      { name: "AI Therapy", href: "/dashboard/therapy/chat", icon: MessageSquare },
+      { name: "Chat History", href: "/dashboard/sessions", icon: History },
+      { name: "Therapy Avatar", href: "/dashboard/avatar", icon: Bot },
+      { name: "Immersive", href: "/dashboard/immersive", icon: Glasses, locked: true },
+    ]
+  },
+  {
+    title: "Management",
+    items: [
+      { name: "Public Profile", href: "/dashboard/profile", icon: User },
+      { name: "Account Settings", href: "/dashboard/settings", icon: Settings },
+      { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+    ]
+  }
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -60,71 +70,88 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto custom-scrollbar">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href;
-          const isLocked = item.locked;
+      <nav className="flex-1 space-y-8 p-4 overflow-y-auto custom-scrollbar">
+        {groups.map((group) => (
+          <div key={group.title} className="space-y-3">
+            <h3 className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">
+              {group.title}
+            </h3>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                const isLocked = item.locked;
 
-          if (isLocked) {
-            return (
-              <div
-                key={item.name}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium cursor-not-allowed opacity-40",
-                  "text-muted-foreground transition-all",
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="flex-1">{item.name}</span>
-                <Lock className="h-3.5 w-3.5 opacity-60" />
-              </div>
-            );
-          }
+                if (isLocked) {
+                  return (
+                    <div
+                      key={item.name}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-bold cursor-not-allowed opacity-30",
+                        "text-muted-foreground transition-all",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span className="flex-1 truncate">{item.name}</span>
+                      <Lock className="h-3 w-3" />
+                    </div>
+                  );
+                }
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]"
-                  : "text-muted-foreground hover:bg-primary/10 hover:text-primary hover:translate-x-1",
-              )}
-            >
-              <item.icon
-                className={cn(
-                  "h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-                  isActive
-                    ? "text-primary-foreground"
-                    : "text-muted-foreground group-hover:text-primary",
-                )}
-              />
-              <span className="flex-1">{item.name}</span>
-              {isActive && (
-                <motion.div
-                  layoutId="active-indicator"
-                  className="h-1.5 w-1.5 rounded-full bg-primary-foreground"
-                />
-              )}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-300",
+                      isActive
+                        ? "bg-primary text-white shadow-[0_8px_16px_-4px_rgba(var(--primary-rgb),0.3)] scale-[1.02]"
+                        : "text-muted-foreground hover:bg-primary/5 hover:text-primary hover:translate-x-1",
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "h-4 w-4 transition-transform duration-300 group-hover:scale-110",
+                        isActive ? "text-white" : "text-muted-foreground/70 group-hover:text-primary",
+                      )}
+                    />
+                    <span className="flex-1 truncate">{item.name}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="active-indicator"
+                        className="h-1.5 w-1.5 rounded-full bg-white shadow-sm"
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="p-4 border-t bg-muted/5">
-        <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-4 border border-primary/10">
-          <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-            Current Plan
-          </p>
-          <p className="text-sm font-bold mb-2">Pro Individual</p>
-          <div className="h-1.5 w-full bg-primary/20 rounded-full overflow-hidden">
-            <div className="h-full bg-primary w-2/3 rounded-full" />
+      <div className="p-4 mt-auto">
+        <div className="rounded-[2rem] bg-card border border-primary/10 p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+              Active Plan
+            </p>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2">
-            12 of 20 sessions used
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm font-black">Professional</p>
+            <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground">
+              <span>Monthly Cycle</span>
+              <span className="text-primary">80% Usage</span>
+            </div>
+          </div>
+          <div className="h-1.5 w-full bg-primary/5 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: "80%" }}
+              className="h-full bg-primary rounded-full" 
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -139,27 +166,27 @@ export function DashboardSidebar() {
       {/* Mobile Sidebar */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="p-0 w-72 border-r-0">
-          <div className="h-full bg-background/95 backdrop-blur-xl border-r">
+          <div className="h-full bg-background/95 backdrop-blur-xl">
             <SidebarContent onNavigate={() => setOpen(false)} />
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-72 flex-col border-r bg-card/50 backdrop-blur-sm sticky top-0 h-screen transition-all duration-300">
-        <SidebarContent />
-      </aside>
-
-      {/* Global Mobile Trigger - Hidden on desktop */}
-      <div className="lg:hidden fixed top-3 left-4 z-50">
+      {/* Mobile trigger — only visible on small screens */}
+      <div className="md:hidden fixed top-3 left-4 z-50">
         <Button
           variant="outline"
           size="icon"
           onClick={() => setOpen(true)}
-          className="bg-background/80 backdrop-blur shadow-sm border-primary/20 hover:border-primary/50 transition-all"
+          className="bg-background/80 backdrop-blur shadow-sm border-primary/20"
         >
           <Menu className="h-5 w-5" />
         </Button>
+      </div>
+
+      {/* Desktop: fill the container provided by layout.tsx */}
+      <div className="hidden md:flex flex-col h-full bg-card/50 backdrop-blur-sm">
+        <SidebarContent />
       </div>
     </>
   );

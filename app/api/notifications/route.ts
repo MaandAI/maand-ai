@@ -1,44 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/backend/middlewares/auth.middleware";
-import { NotificationsService } from "@/backend/services/notifications.service";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import dbConnect from "@/lib/mongodb";
+import Notification from "@/models/Notification";
 
 export async function GET(req: NextRequest) {
-  return withAuth(req, async (req, user) => {
-    try {
-      const notifications = await NotificationsService.getUserNotifications(
-        user.uid,
-      );
-      return NextResponse.json({ success: true, data: notifications });
-    } catch (error: any) {
-      console.error("Notifications API Error:", error);
-      return NextResponse.json(
-        { error: "Internal Server Error" },
-        { status: 500 },
-      );
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  });
+
+    await dbConnect();
+    const notifications = await Notification.find({ userId: (session.user as any).id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return NextResponse.json({ success: true, data: notifications });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
-  return withAuth(req, async (req, user) => {
-    try {
-      const body = await req.json();
-      const { notificationId } = body;
-
-      if (!notificationId) {
-        return NextResponse.json(
-          { error: "notificationId is required" },
-          { status: 400 },
-        );
-      }
-
-      await NotificationsService.markAsRead(user.uid, notificationId);
-      return NextResponse.json({ success: true });
-    } catch (error: any) {
-      return NextResponse.json(
-        { error: "Internal Server Error" },
-        { status: 500 },
-      );
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-  });
+
+    await dbConnect();
+    await Notification.updateMany(
+      { userId: (session.user as any).id, isRead: false },
+      { isRead: true }
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }

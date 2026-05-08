@@ -122,6 +122,7 @@ export default function TherapyChatPage() {
         onNewSession={handleNewSession}
         onCompleteSession={() => chat.completeSession(chat.sessionId)}
         isCompleting={chat.isCompleting}
+        sessionStatus={chat.currentSession?.status}
       />
 
       <div className="flex-1 min-h-0 flex gap-4 md:gap-6 overflow-hidden relative">
@@ -179,7 +180,7 @@ export default function TherapyChatPage() {
                 <ScrollArea 
                   className="absolute inset-0 w-full h-full p-4 md:p-8" 
                   ref={scrollRef}
-                  hideScrollbar
+                  hideScrollbar={!chat.showMoodCheckIn}
                 >
                 {!chat.showMoodCheckIn && (
                   <GestureRecognition
@@ -194,7 +195,7 @@ export default function TherapyChatPage() {
                     <motion.div
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="py-4 md:py-8"
+                      className="py-4 md:py-8 min-h-[500px] flex flex-col items-center justify-center"
                     >
                       <MoodCheckIn onComplete={handleMoodComplete} />
                     </motion.div>
@@ -246,7 +247,7 @@ export default function TherapyChatPage() {
                 }
                 voiceEnabled={voice.voiceEnabled}
                 setVoiceEnabled={voice.setVoiceEnabled}
-                disabled={chat.showMoodCheckIn}
+                disabled={chat.showMoodCheckIn || chat.currentSession?.status === "completed"}
                 isTyping={chat.isTyping}
                 setUserIsTyping={setUserIsTyping}
               />

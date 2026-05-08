@@ -11,6 +11,7 @@ export type ChatSession = {
   createdAt: string;
   updatedAt?: string;
   isFavorite?: boolean;
+  status: "active" | "completed";
 };
 
 export type AvatarState = "calm" | "thinking" | "listening" | "supportive" | "reflective";

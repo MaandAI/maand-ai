@@ -13,6 +13,7 @@ interface ChatHeaderProps {
   onNewSession: () => void;
   onCompleteSession: () => void;
   isCompleting?: boolean;
+  sessionStatus?: "active" | "completed";
 }
 
 export function ChatHeader({
@@ -23,6 +24,7 @@ export function ChatHeader({
   onNewSession,
   onCompleteSession,
   isCompleting = false,
+  sessionStatus = "active",
 }: ChatHeaderProps) {
   const router = useRouter();
 
@@ -59,10 +61,10 @@ export function ChatHeader({
             variant="outline" 
             onClick={onCompleteSession} 
             className="rounded-full text-xs font-semibold border-primary/20 hover:bg-primary/5"
-            disabled={isCompleting}
+            disabled={isCompleting || sessionStatus === "completed"}
           >
             {isCompleting ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : null}
-            Finish Session
+            {sessionStatus === "completed" ? "Session Ended" : "Finish Session"}
           </Button>
         </div>
 

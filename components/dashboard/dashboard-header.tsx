@@ -16,6 +16,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { signOut } from "next-auth/react";
+import { NotificationCenter } from "@/components/dashboard/notification-center";
 
 export function DashboardHeader() {
   const router = useRouter();
@@ -36,78 +37,58 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 transition-all duration-200">
+    <header className="shrink-0 z-40 border-b bg-background/80 backdrop-blur-md transition-all duration-200">
       <div className="flex h-16 items-center justify-between px-6 md:px-8">
-        <div className="flex items-center gap-4">
-          {/* Mobile menu trigger is handled in Sidebar component for better state management */}
+        <div className="flex items-center gap-6">
           <div className="hidden md:flex flex-col">
-            <h2 className="text-sm font-medium text-muted-foreground/60 uppercase tracking-wider text-[10px]">
-              Maand / Home
+            <h2 className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.3em]">
+              Workspace / {getPageTitle()}
             </h2>
-            <h1 className="text-xl font-bold tracking-tight">
+            <h1 className="text-xl font-black tracking-tighter">
               {getPageTitle()}
             </h1>
           </div>
+          
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-muted/40 rounded-xl border border-primary/5 w-64 group hover:border-primary/20 transition-all cursor-text">
+            <svg className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-widest">Search Journal...</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 pr-4 border-r border-primary/5">
+             <ThemeToggle />
+             <NotificationCenter />
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="relative hover:bg-primary/10 transition-colors"
+                className="gap-3 px-1 hover:bg-transparent transition-all group"
               >
-                <Bell className="h-5 w-5" />
-                <span className="absolute right-2 top-2 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 mt-2 p-2">
-              <DropdownMenuLabel className="px-2 pb-2">
-                Notifications
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <div className="p-4 text-center">
-                <div className="bg-muted/50 rounded-full h-10 w-10 flex items-center justify-center mx-auto mb-2 text-muted-foreground">
-                  <Bell className="h-5 w-5" />
+                <div className="hidden md:flex flex-col items-end text-right">
+                  <span className="text-xs font-black group-hover:text-primary transition-colors">
+                    {profile?.displayName || "User"}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                      Professional
+                    </span>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  You're all caught up!
-                </p>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="gap-2 px-1 hover:bg-primary/10 transition-colors"
-              >
                 <div className="relative">
-                  <Avatar className="h-8 w-8 ring-2 ring-background border border-primary/20">
+                  <Avatar className="h-9 w-9 ring-2 ring-background border border-primary/10 group-hover:ring-primary/20 transition-all shadow-sm">
                     <AvatarImage
                       src={profile?.photoURL || "/placeholder.svg"}
                       alt={profile?.displayName || "User"}
                     />
-                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                    <AvatarFallback className="bg-primary text-white font-black text-xs">
                       {profile?.displayName?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background" />
-                </div>
-                <div className="hidden md:flex flex-col items-start text-xs">
-                  <span className="font-semibold">
-                    {profile?.displayName || "User"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Standard Plan
-                  </span>
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background shadow-sm" />
                 </div>
               </Button>
             </DropdownMenuTrigger>

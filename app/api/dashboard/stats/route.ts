@@ -1,39 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/backend/middlewares/auth.middleware";
-import { DashboardService } from "@/backend/services/dashboard.service";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import dbConnect from "@/lib/mongodb";
+import ChatSession from "@/models/ChatSession";
+import Report from "@/models/Report";
+import Notification from "@/models/Notification";
 
 export async function GET(req: NextRequest) {
-  // Requires Admin access
-  return withAuth(
-    req,
-    async (req, user) => {
-      try {
-        const url = new URL(req.url);
-        const type = url.searchParams.get("type") || "overview";
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        let data;
-        if (type === "overview") {
-          data = await DashboardService.getOverviewStats();
-        } else if (type === "activity") {
-          data = await DashboardService.getUserActivity();
-        } else if (type === "revenue") {
-          data = await DashboardService.getRevenueData();
-        } else {
-          return NextResponse.json(
-            { error: "Invalid type parameter" },
-            { status: 400 },
-          );
+    const userId = (session.user as any).id;
+    await dbConnect();
+
+    // Fetch counts
+    const totalSessions = await ChatSession.countDocuments({ userId });
+    const activeSessions = await ChatSession.countDocuments({ userId, status: "active" });
+    const totalReports = await Report.countDocuments({ userId });
+    const favoriteReports = await Report.countDocuments({ userId, isFavorite: true });
+    const unreadNotifications = await Notification.countDocuments({ userId, isRead: false });
+
+    // Fetch recent activity
+    const recentSessions = await ChatSession.find({ userId })
+      .sort({ updatedAt: -1 })
+      .limit(5);
+
+    const recentReports = await Report.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        stats: {
+          totalSessions,
+          activeSessions,
+          totalReports,
+          favoriteReports,
+          unreadNotifications,
+        },
+        recentActivity: {
+          sessions: recentSessions,
+          reports: recentReports,
         }
-
-        return NextResponse.json({ success: true, data });
-      } catch (error: any) {
-        console.error("Dashboard API Error:", error);
-        return NextResponse.json(
-          { error: "Internal Server Error" },
-          { status: 500 },
-        );
       }
-    },
-    true,
-  ); // The true parameter enforces requireAdmin in withAuth
+    });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }

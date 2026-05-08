@@ -50,16 +50,18 @@ export function ChatSidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [statusFilter, setStatusFilter] = useState<"active" | "completed">("active");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Filtering Logic
   const filteredSessions = useMemo(() => {
     return sessions.filter(s => {
       const matchesSearch = (s.title || "Untitled Session").toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesFilter = filter === "all" || s.isFavorite;
-      return matchesSearch && matchesFilter;
+      const matchesStatus = s.status === statusFilter;
+      const matchesFavorite = showFavoritesOnly ? s.isFavorite : true;
+      return matchesSearch && matchesStatus && matchesFavorite;
     });
-  }, [sessions, searchQuery, filter]);
+  }, [sessions, searchQuery, statusFilter, showFavoritesOnly]);
 
   const handleRename = async (id: string) => {
     if (!editTitle.trim()) return;
@@ -131,23 +133,34 @@ export function ChatSidebar({
 
           <div className="flex p-1 bg-muted/30 rounded-xl gap-1">
             <button
-              onClick={() => setFilter("all")}
+              onClick={() => setStatusFilter("active")}
               className={cn(
                 "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all",
-                filter === "all" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:bg-background/50"
+                statusFilter === "active" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:bg-background/50"
               )}
             >
-              All
+              Active
             </button>
             <button
-              onClick={() => setFilter("favorites")}
+              onClick={() => setStatusFilter("completed")}
               className={cn(
-                "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5",
-                filter === "favorites" ? "bg-background shadow-sm text-amber-500" : "text-muted-foreground hover:bg-background/50"
+                "flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all",
+                statusFilter === "completed" ? "bg-background shadow-sm text-emerald-500" : "text-muted-foreground hover:bg-background/50"
               )}
             >
-              <Star className={cn("h-3 w-3", filter === "favorites" ? "fill-amber-500" : "")} />
-              Saved
+              Finished
+            </button>
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg transition-all flex items-center justify-center",
+                showFavoritesOnly 
+                  ? "bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-sm" 
+                  : "text-muted-foreground hover:bg-background/50 border border-transparent"
+              )}
+              title={showFavoritesOnly ? "Showing Favorites Only" : "Show All"}
+            >
+              <Star className={cn("h-3.5 w-3.5", showFavoritesOnly ? "fill-amber-500" : "")} />
             </button>
           </div>
         </div>

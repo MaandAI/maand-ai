@@ -30,6 +30,7 @@ export function useTherapyChat() {
     loading: apiLoading,
   } = useChatAPI();
   const { persona } = usePersonaProfile();
+  const currentSession = sessions.find((s) => s.id === sessionId) || null;
 
   // Load Sessions
   const loadSessions = useCallback(async () => {
@@ -232,7 +233,8 @@ export function useTherapyChat() {
           description: "Your structured report has been generated and saved.",
         });
 
-        router.push("/dashboard/modules");
+        await loadSessions();
+        router.push("/dashboard/therapy/chat");
       } catch (e: any) {
         console.error("Complete Session Error:", e);
         toast({
@@ -259,6 +261,7 @@ export function useTherapyChat() {
 
   return {
     sessionId,
+    currentSession,
     sessions,
     messages,
     isTyping,
