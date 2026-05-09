@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { sendSecurityAlertEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +32,11 @@ export async function POST(req: NextRequest) {
     // Invalidate all other sessions by incrementing authVersion
     user.authVersion += 1;
     await user.save();
+
+    // Send security notification (non-blocking)
+    sendSecurityAlertEmail(user.email, user.name, "password_changed").catch((err) =>
+      console.error("[Password Change] Email send failed:", err)
+    );
 
     return NextResponse.json({ success: true, message: "Password updated successfully" });
   } catch (error) {

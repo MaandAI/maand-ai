@@ -53,6 +53,11 @@ const UserSchema = new Schema(
     emailVerificationToken: { type: String, select: false },
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
+
+    // Email Change Flow
+    pendingEmail: { type: String, select: false },
+    emailChangeToken: { type: String, select: false },
+    emailChangeTokenExpiry: { type: Date, select: false },
     
     // Auth Versioning (for global logout)
     authVersion: { type: Number, default: 0 },

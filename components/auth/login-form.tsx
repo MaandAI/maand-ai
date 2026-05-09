@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "../ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -50,11 +50,18 @@ export function LoginForm() {
         });
         setIsLoading(false);
       } else {
-        toast({
-          title: "Success",
-          description: "Welcome back! Redirecting...",
-        });
-        router.push("/dashboard");
+        // Re-read the session to check if 2FA is required
+        const session = await getSession();
+        if ((session?.user as any)?.requires2FA) {
+          router.push("/auth/2fa");
+        } else {
+          toast({
+            title: "Success",
+            description: "Welcome back! Redirecting...",
+          });
+          const role = (session?.user as any)?.role;
+          router.push(role === "admin" ? "/admin" : "/dashboard");
+        }
       }
     } catch (err: any) {
       setError("An unexpected error occurred");

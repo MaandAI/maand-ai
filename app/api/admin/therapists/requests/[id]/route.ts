@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import TherapistRequest from "@/models/TherapistRequest";
 import User from "@/models/User";
-import { sendEmail, sendWelcomeEmail, sendTherapistApprovalEmail } from "@/lib/mail";
+import { sendWelcomeEmail, sendTherapistApprovalEmail } from "@/lib/mail";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { Resend } from "resend";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -62,18 +63,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       therapistRequest.adminNotes = adminNotes;
       await therapistRequest.save();
 
-      // Send rejection email
-      await sendEmail({
-        to: therapistRequest.email,
-        subject: "Update on your Therapist Request - Maand",
-        html: `
-          <h1>Hello, ${therapistRequest.name}</h1>
-          <p>Thank you for your interest in joining Maand.</p>
-          <p>Unfortunately, your request has been rejected at this time.</p>
-          ${adminNotes ? `<p><strong>Note from Admin:</strong> ${adminNotes}</p>` : ""}
-          <p>If you have any questions, please contact our support team.</p>
-        `,
-      });
+      // Send rejection email via Resend
+      if (process.env.RESEND_API_KEY) {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || "Maand <noreply@maand.tech>",
+          to: [therapistRequest.email],
+          subject: "Update on your Therapist Request — Maand",
+          html: `<p>Hi ${therapistRequest.name}, unfortunately your request has not been approved at this time.${adminNotes ? ` Admin note: ${adminNotes}` : ""}</p>`,
+        });
+      } else {
+        console.log(`[MOCK EMAIL] Rejection notice to ${therapistRequest.email}`);
+      }
 
       return NextResponse.json({ success: true, message: "Request rejected." });
     }

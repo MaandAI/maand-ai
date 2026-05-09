@@ -333,6 +333,42 @@ function AITab({ local, onUpdate }: { local: any; onUpdate: (path: string, val: 
 
 // ─── Security Tab ─────────────────────────────────────────────────────────────
 function SecurityTab({ session }: { session: any }) {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (format: "json" | "csv") => {
+    setIsExporting(true);
+    try {
+      const url = format === "csv"
+        ? "/api/user/export?format=csv&section=profile"
+        : "/api/user/export?format=json";
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Export failed");
+        return;
+      }
+
+      // Trigger browser download
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition") || "";
+      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
+      const filename = filenameMatch?.[1] || `maand_export_${Date.now()}.${format}`;
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      alert("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* 2FA Section */}
@@ -340,10 +376,29 @@ function SecurityTab({ session }: { session: any }) {
 
       {/* Data controls */}
       <SectionCard title="Data & Privacy" description="Manage your clinical data and account sovereignty.">
-        <SettingRow icon={Download} label="Export My Data" description="Download a full copy of your clinical history as an encrypted JSON file">
-          <Button variant="outline" size="sm" className="rounded-xl h-9 gap-2 text-xs">
-            <Download className="h-3.5 w-3.5" />
-            Export
+        <SettingRow icon={Download} label="Export My Data (JSON)" description="Download a full copy of your clinical history, sessions, reports, and settings">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl h-9 gap-2 text-xs"
+            onClick={() => handleExport("json")}
+            disabled={isExporting}
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Export JSON
+          </Button>
+        </SettingRow>
+
+        <SettingRow icon={Download} label="Export Profile (CSV)" description="Download your profile data in spreadsheet format">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-xl h-9 gap-2 text-xs"
+            onClick={() => handleExport("csv")}
+            disabled={isExporting}
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Export CSV
           </Button>
         </SettingRow>
 

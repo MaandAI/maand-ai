@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -30,6 +31,10 @@ export const authOptions: NextAuthOptions = {
             status: "active",
             password: Math.random().toString(36).slice(-16), // Dummy password for OAuth users
           });
+          // Send welcome email for new Google sign-ups (non-blocking)
+          sendWelcomeEmail(user.email, user.name).catch((err) =>
+            console.error("[Google OAuth] Welcome email failed:", err)
+          );
         } else if (!user.googleId) {
           user.googleId = profile.sub;
           if (!user.image) user.image = profile.picture;

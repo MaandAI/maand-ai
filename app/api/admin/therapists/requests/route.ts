@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import TherapistRequest from "@/models/TherapistRequest";
 import User from "@/models/User";
-import { sendEmail, sendWelcomeEmail, sendTherapistApprovalEmail } from "@/lib/mail";
+import { sendWelcomeEmail, sendTherapistApprovalEmail } from "@/lib/mail";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";

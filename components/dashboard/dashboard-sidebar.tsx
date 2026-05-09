@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useUserStore } from "@/lib/store/user-store";
 
 const groups = [
   {
@@ -53,6 +54,7 @@ const groups = [
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { user } = useUserStore();
 
   return (
     <div className="flex h-full flex-col">
@@ -139,17 +141,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-black">Professional</p>
+            <p className="text-sm font-black capitalize">{user?.role || "Free"}</p>
             <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground">
-              <span>Monthly Cycle</span>
-              <span className="text-primary">80% Usage</span>
+              <span>Account Usage</span>
+              <span className="text-primary">Syncing...</span>
             </div>
           </div>
           <div className="h-1.5 w-full bg-primary/5 rounded-full overflow-hidden">
             <motion.div 
               initial={{ width: 0 }}
-              animate={{ width: "80%" }}
-              className="h-full bg-primary rounded-full" 
+              animate={{ width: "100%" }}
+              className="h-full bg-primary/20 rounded-full" 
             />
           </div>
         </div>

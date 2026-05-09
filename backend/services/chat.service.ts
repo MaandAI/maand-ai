@@ -11,6 +11,8 @@ import {
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import cloudinary from "@/lib/cloudinary";
 import { NotificationService } from "./notification.service";
+import { getUserSettings, getUserEmailAndName } from "@/lib/get-user-settings";
+import { sendReportReadyEmail } from "@/lib/email";
 
 export class ChatService {
   static async createSession(
@@ -112,10 +114,27 @@ export class ChatService {
     await dbConnect();
 
     // 1. Fetch session and messages
-    const session = await ChatSession.findOne({ _id: sessionId, userId });
-    console.log(session);
-    if (!session) throw new Error("Session not found");
-    if (session.status === "completed") return session;
+    const chatSession = await ChatSession.findOne({ _id: sessionId, userId });
+    if (!chatSession) throw new Error("Session not found");
+    if (chatSession.status === "completed") return chatSession;
+
+    // 2. Check user settings — gate report generation on autoReport flag
+    const settings = await getUserSettings(userId);
+    const userInfo = await getUserEmailAndName(userId);
+
+    if (!settings.aiPreferences.autoReport) {
+      // Skip report generation — just mark session as completed
+      console.log(`[ChatService] autoReport disabled for user ${userId}, skipping report.`);
+      chatSession.status = "completed";
+      await chatSession.save();
+
+      // Still notify session completion if notifications.session is enabled
+      if (settings.notifications.session) {
+        await NotificationService.notifySessionCompleted(userId, sessionId);
+      }
+
+      return chatSession;
+    }
 
     const messages = await Message.find({ sessionId }).sort({ createdAt: 1 });
     const decryptedMessages = messages.map((m) => ({
@@ -123,7 +142,7 @@ export class ChatService {
       content: decryptData(m.content),
     }));
 
-    // 2. Generate Structured Report using Gemini
+    // 3. Generate Structured Report using Gemini
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const prompt = `
       Analyze the following therapy session transcript and generate a structured clinical report.
@@ -166,14 +185,15 @@ export class ChatService {
         .trim();
     }
 
-    // 3. Upload Report to Cloudinary as a raw JSON file
+    // 4. Upload Report JSON to Cloudinary
     const uploadRes = (await new Promise((resolve, reject) => {
       cloudinary.uploader.upload(
         `data:application/json;base64,${Buffer.from(reportContent).toString("base64")}`,
         {
           resource_type: "raw",
-          folder: "therapy_reports",
+          folder: "maand/reports/json",
           public_id: `report_${sessionId}`,
+          overwrite: true,
         },
         (error, result) => {
           if (error) reject(error);
@@ -182,37 +202,70 @@ export class ChatService {
       );
     })) as any;
 
-    // 4. Create Report in DB
+    // 5. Create Report in DB
+    let createdReport: any = null;
+    let parsedReport: any = {};
     try {
-      const parsedReport = JSON.parse(reportContent);
-      await Report.create({
+      parsedReport = JSON.parse(reportContent);
+      createdReport = await Report.create({
         userId,
         sessionId,
-        title: session.title || `Report for Session ${new Date().toLocaleDateString()}`,
+        title: chatSession.title || `Report for Session ${new Date().toLocaleDateString()}`,
         summary: parsedReport.summary,
         emotionalTrends: parsedReport.emotional_trends,
         keyTopics: parsedReport.key_topics,
         recommendations: parsedReport.recommendations,
         riskAssessment: parsedReport.risk_assessment,
         contentUrl: uploadRes.secure_url,
-        isFavorite: session.isFavorite || false,
+        isFavorite: chatSession.isFavorite || false,
+        deliveryStatus: "pending",
       });
     } catch (err) {
       console.error("Failed to create Report document:", err);
     }
 
-    // 5. Update Session in DB
-    session.status = "completed";
-    session.reportUrl = uploadRes.secure_url;
-    session.reportId = uploadRes.public_id;
-    await session.save();
+    // 6. Update Session in DB
+    chatSession.status = "completed";
+    chatSession.reportUrl = uploadRes.secure_url;
+    chatSession.reportId = uploadRes.public_id;
+    await chatSession.save();
 
-    // 6. Notify User
-    await NotificationService.notifySessionCompleted(userId, sessionId);
-    // Fetch the newly created report for its ID if needed, or just notify general report generation
-    await NotificationService.notifyReportGenerated(userId, sessionId); 
+    // 7. Notify User (respecting notification settings)
+    if (settings.notifications.session) {
+      await NotificationService.notifySessionCompleted(userId, sessionId);
+    }
+    if (settings.notifications.report) {
+      await NotificationService.notifyReportGenerated(userId, sessionId);
+    }
 
-    return session;
+    // 8. Send report-ready email (respecting email notification settings)
+    if (settings.notifications.report && settings.notifications.email && userInfo && createdReport) {
+      sendReportReadyEmail(
+        userInfo.email,
+        userInfo.name,
+        chatSession.title || "Your Session",
+        createdReport._id.toString(),
+        undefined, // pdfUrl — reserved for future PDF generation
+        parsedReport.summary,
+      )
+        .then(async (result) => {
+          if (result.success) {
+            await Report.findByIdAndUpdate(createdReport._id, {
+              deliveryStatus: "emailed",
+              emailedAt: new Date(),
+            });
+          } else {
+            await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "failed" });
+          }
+        })
+        .catch(async () => {
+          await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "failed" });
+        });
+    } else if (createdReport) {
+      await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "skipped" });
+    }
+
+    return chatSession;
   }
 
   static async updateSession(
