@@ -190,29 +190,35 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
         // Tavus CVI app-message (conversation utterance events)
         call.on("app-message", (e: any) => {
           try {
-            const msg =
-              typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-            console.log("[Tavus] app-message:", JSON.stringify(msg).slice(0, 200));
+            const raw = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+            console.log("[Tavus] app-message:", JSON.stringify(raw).slice(0, 200));
 
-            // Tavus CVI v2 format: properties.content  (preferred)
-            // Legacy / flat: text, message, utterance, transcript
-            const text =
-              msg?.properties?.content ||
-              msg?.properties?.text ||
-              msg?.text ||
-              msg?.message ||
-              msg?.utterance ||
-              msg?.transcript ||
+            // Extract text from any known path
+            let text =
+              raw?.properties?.content ||
+              raw?.properties?.text ||
+              raw?.text ||
+              raw?.message ||
+              raw?.utterance ||
+              raw?.transcript ||
+              raw?.content ||
               null;
 
-            const roleRaw =
-              msg?.properties?.role || msg?.role || "assistant";
-            const speaker: "user" | "therapist" =
-              roleRaw === "user" || roleRaw === "human"
-                ? "user"
-                : "therapist";
+            // Aggressive fallback: if we still don't have text, look for any string > 3 chars
+            if (!text && typeof raw === "object") {
+              const possibleValues = Object.values(raw).filter(
+                (v) => typeof v === "string" && v.length > 3 && !v.includes("_") && !v.match(/^[a-z0-9-]+$/i)
+              );
+              if (possibleValues.length > 0) text = possibleValues[0];
+            }
 
-            if (text) fireTranscript(speaker, String(text));
+            const roleRaw = raw?.properties?.role || raw?.role || "replica";
+            const speaker: "user" | "therapist" =
+              roleRaw === "user" || roleRaw === "human" ? "user" : "therapist";
+
+            if (text && typeof text === "string" && text.trim().length > 0) {
+              fireTranscript(speaker, text.trim(), true);
+            }
           } catch (err) {
             console.error("[Tavus] app-message parse error:", err);
           }

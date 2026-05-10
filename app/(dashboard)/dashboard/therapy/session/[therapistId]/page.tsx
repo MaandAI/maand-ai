@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { getPersona } from "@/lib/therapist-personas";
 import { useTavusSession } from "@/hooks/use-tavus-session";
 import { useTherapistStore } from "@/lib/store/therapist-store";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { GestureRecognition } from "@/components/therapy/gesture-recognition";
 import type { GestureResult } from "@/utils/gesture-detection";
 import { cn } from "@/lib/utils";
@@ -96,9 +97,21 @@ export default function VideoSessionPage() {
     saveEntry(speaker, clean);
   }, [persona.name, saveEntry]);
 
+  // ── Browser STT for User Speech ──────────────────────────────────
+  const { toggleListening, stopListening, isListening } = useSpeechRecognition({
+    continuous: true,
+    onResult: useCallback((text: string, isFinal: boolean) => {
+      addTranscript("user", text, isFinal);
+    }, [addTranscript])
+  });
+
   // ── Tavus — meeting engine ─────────────────────────────────────────
   const tavus = useTavusSession({
-    onTranscript: useCallback((e) => addTranscript(e.speaker, e.text, e.isFinal), [addTranscript]),
+    onTranscript: useCallback((e) => {
+      // If we receive user speech from Tavus, we can use it, but ignore it if local STT is running
+      if (e.speaker === "user" && isListening) return;
+      addTranscript(e.speaker, e.text, e.isFinal);
+    }, [addTranscript, isListening]),
   });
 
   // ── Camera/mic init ────────────────────────────────────────────────
@@ -137,13 +150,20 @@ export default function VideoSessionPage() {
         recRef.current = mr;
       } catch {}
     }
+    
+    // Start local STT for user speech
+    if (!isListening) {
+      toggleListening();
+    }
+
     // Tavus is the meeting engine — just join and let it handle conversation
     tavus.initTavusSession(therapistId);
-  }, [therapistId, tavus]);
+  }, [therapistId, tavus, isListening, toggleListening]);
 
   const endSession = useCallback(async () => {
     setPhase("ending");
     clearInterval(timerRef.current);
+    stopListening();
     if (recRef.current?.state !== "inactive") recRef.current?.stop();
     camStream.current?.getTracks().forEach(t => t.stop());
     tavus.endSession();
@@ -164,7 +184,7 @@ export default function VideoSessionPage() {
     setPhase("report");
   }, [tavus, endStoreSession]);
 
-  useEffect(() => { init(); return () => { clearInterval(timerRef.current); tavus.endSession(); endStoreSession(); }; }, []);
+  useEffect(() => { init(); return () => { clearInterval(timerRef.current); stopListening(); tavus.endSession(); endStoreSession(); }; }, []);
 
   // ── Send typed message to Tavus ───────────────────────────────────
   const sendChat = useCallback(() => {
