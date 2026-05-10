@@ -63,6 +63,32 @@ export function ChatSidebar({
     });
   }, [sessions, searchQuery, statusFilter, showFavoritesOnly]);
 
+  const groupedSessions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const last7Days = new Date(today);
+    last7Days.setDate(last7Days.getDate() - 7);
+
+    const groups: { [key: string]: ChatSession[] } = {
+      "Today": [],
+      "Yesterday": [],
+      "Previous 7 Days": [],
+      "Older": []
+    };
+
+    filteredSessions.forEach(s => {
+      const d = new Date(s.createdAt || Date.now());
+      if (d >= today) groups["Today"].push(s);
+      else if (d >= yesterday) groups["Yesterday"].push(s);
+      else if (d >= last7Days) groups["Previous 7 Days"].push(s);
+      else groups["Older"].push(s);
+    });
+
+    return Object.entries(groups).filter(([_, group]) => group.length > 0);
+  }, [filteredSessions]);
+
   const handleRename = async (id: string) => {
     if (!editTitle.trim()) return;
     try {
@@ -168,128 +194,141 @@ export function ChatSidebar({
 
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-2">
-          {filteredSessions.map((s) => (
-            <div key={s.id} className="group relative">
-              {editingId === s.id ? (
-                <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-xl border border-primary/10">
-                  <Input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="h-8 text-xs border-none bg-transparent focus-visible:ring-0"
-                    autoFocus
-                  />
-                  <div className="flex gap-0.5">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10"
-                      onClick={() => handleRename(s.id)}
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-rose-500 hover:bg-rose-500/10"
-                      onClick={() => setEditingId(null)}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  onClick={() => onSelectSession(s.id)}
-                  className={cn(
-                    "group/item flex items-center gap-2 p-3 rounded-2xl text-sm transition-all cursor-pointer relative overflow-hidden",
-                    currentSessionId === s.id
-                      ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 scale-[1.02]"
-                      : "hover:bg-primary/10 text-muted-foreground hover:text-foreground border border-transparent hover:border-primary/10",
-                  )}
-                >
-                  {/* Active Indicator */}
-                  {currentSessionId === s.id && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-foreground/30" />
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="truncate text-xs tracking-tight">
-                        {s.title || "Untitled Session"}
+          {groupedSessions.map(([groupName, groupSessions]) => (
+            <div key={groupName} className="mb-6 last:mb-0">
+              <h4 className="px-3 mb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 sticky top-0 bg-card/95 backdrop-blur py-1 z-10">
+                {groupName}
+              </h4>
+              <div className="space-y-1">
+                {groupSessions.map((s) => (
+                  <div key={s.id} className="group relative">
+                    {editingId === s.id ? (
+                      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-xl border border-primary/10">
+                        <Input
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="h-8 text-xs border-none bg-transparent focus-visible:ring-0"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRename(s.id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                        />
+                        <div className="flex gap-0.5">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-emerald-500 hover:bg-emerald-500/10"
+                            onClick={() => handleRename(s.id)}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-rose-500 hover:bg-rose-500/10"
+                            onClick={() => setEditingId(null)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      {s.isFavorite && (
-                        <Star className={cn("h-3 w-3 shrink-0", currentSessionId === s.id ? "fill-primary-foreground" : "fill-amber-400 text-amber-400")} />
-                      )}
-                    </div>
-                    <div
-                      className={cn(
-                        "text-[10px] mt-1 font-medium flex items-center gap-1",
-                        currentSessionId === s.id
-                          ? "text-primary-foreground/70"
-                          : "text-muted-foreground/60",
-                      )}
-                    >
-                      {s.createdAt
-                        ? new Date(s.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                        : "Just now"}
-                    </div>
-                  </div>
+                    ) : (
+                      <div 
+                        onClick={() => onSelectSession(s.id)}
+                        className={cn(
+                          "group/item flex items-center gap-2 p-3 rounded-2xl text-sm transition-all cursor-pointer relative overflow-hidden",
+                          currentSessionId === s.id
+                            ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 scale-[1.02] z-10"
+                            : "hover:bg-primary/10 text-muted-foreground hover:text-foreground border border-transparent hover:border-primary/10",
+                        )}
+                      >
+                        {/* Active Indicator */}
+                        {currentSessionId === s.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-foreground/30" />
+                        )}
 
-                  <div className="flex items-center opacity-0 group-hover/item:opacity-100 transition-opacity">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className={cn(
-                        "h-8 w-8 rounded-full",
-                        currentSessionId === s.id ? "hover:bg-primary-foreground/10 text-primary-foreground" : "hover:bg-primary/10 text-muted-foreground"
-                      )}
-                      onClick={(e) => handleToggleFavorite(e, s)}
-                    >
-                      <Star className={cn("h-4 w-4", s.isFavorite ? "fill-amber-400 text-amber-400" : "")} />
-                    </Button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="truncate text-xs tracking-tight">
+                              {s.title || "Untitled Session"}
+                            </div>
+                            {s.isFavorite && (
+                              <Star className={cn("h-3 w-3 shrink-0", currentSessionId === s.id ? "fill-primary-foreground" : "fill-amber-400 text-amber-400")} />
+                            )}
+                          </div>
+                          <div
+                            className={cn(
+                              "text-[10px] mt-1 font-medium flex items-center gap-1",
+                              currentSessionId === s.id
+                                ? "text-primary-foreground/70"
+                                : "text-muted-foreground/60",
+                            )}
+                          >
+                            {s.createdAt
+                              ? new Date(s.createdAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+                              : "Just now"}
+                          </div>
+                        </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className={cn(
-                            "h-8 w-8 rounded-full",
-                            currentSessionId === s.id ? "hover:bg-primary-foreground/10 text-primary-foreground" : "hover:bg-primary/10 text-muted-foreground"
-                          )}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-2xl border-primary/10 shadow-2xl">
-                        <DropdownMenuItem
-                          className="rounded-xl cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingId(s.id);
-                            setEditTitle(s.title || "");
-                          }}
-                        >
-                          <Edit2 className="h-3.5 w-3.5 mr-2.5 text-blue-500" />
-                          <span className="text-xs font-bold">Rename Session</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-primary/5 mx-1" />
-                        <DropdownMenuItem
-                          className="text-rose-500 rounded-xl cursor-pointer focus:bg-rose-500/10 focus:text-rose-500"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(s.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-2.5" />
-                          <span className="text-xs font-bold">Delete Session</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                        <div className="flex items-center opacity-50 group-hover/item:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={cn(
+                              "h-8 w-8 rounded-full",
+                              currentSessionId === s.id ? "hover:bg-primary-foreground/10 text-primary-foreground" : "hover:bg-primary/10 text-muted-foreground"
+                            )}
+                            onClick={(e) => handleToggleFavorite(e, s)}
+                          >
+                            <Star className={cn("h-4 w-4", s.isFavorite ? "fill-amber-400 text-amber-400" : "")} />
+                          </Button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className={cn(
+                                  "h-8 w-8 rounded-full",
+                                  currentSessionId === s.id ? "hover:bg-primary-foreground/10 text-primary-foreground" : "hover:bg-primary/10 text-muted-foreground"
+                                )}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-2xl border-primary/10 shadow-2xl z-50">
+                              <DropdownMenuItem
+                                className="rounded-xl cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingId(s.id);
+                                  setEditTitle(s.title || "");
+                                }}
+                              >
+                                <Edit2 className="h-3.5 w-3.5 mr-2.5 text-blue-500" />
+                                <span className="text-xs font-bold">Rename Session</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-primary/5 mx-1" />
+                              <DropdownMenuItem
+                                className="text-rose-500 rounded-xl cursor-pointer focus:bg-rose-500/10 focus:text-rose-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(s.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2.5" />
+                                <span className="text-xs font-bold">Delete Session</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           ))}
           

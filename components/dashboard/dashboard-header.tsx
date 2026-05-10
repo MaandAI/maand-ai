@@ -30,10 +30,21 @@ export function DashboardHeader() {
   const getPageTitle = () => {
     const parts = pathname.split("/").filter(Boolean);
     if (parts.length <= 1) return "Dashboard";
-    return (
-      parts[parts.length - 1].charAt(0).toUpperCase() +
-      parts[parts.length - 1].slice(1)
-    );
+
+    // /dashboard/modules/[slug]  → "Modules"
+    // /dashboard/modules/[slug]/stage/[id] → "Active Stage"
+    if (parts.includes("modules")) {
+      const moduleIdx = parts.indexOf("modules");
+      if (parts.includes("stage")) return "Active Stage";
+      if (parts.length > moduleIdx + 1) return "Modules";
+      return "Modules";
+    }
+
+    const last = parts[parts.length - 1];
+    // Convert kebab-case slugs and capitalise
+    return last
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   return (

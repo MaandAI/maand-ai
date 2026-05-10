@@ -8,7 +8,6 @@ import {
   Brain,
   User,
   Settings,
-  Bell,
   CreditCard,
   Menu,
   MessageSquare,
@@ -17,12 +16,18 @@ import {
   Lock,
   FileText,
   History,
+  ShieldAlert,
+  Sparkles,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useUserStore } from "@/lib/store/user-store";
+import { useTherapistStore } from "@/lib/store/therapist-store";
+import { getPersona } from "@/lib/therapist-personas";
+import { EmergencyCalm } from "../therapy/emergency-calm";
 
 const groups = [
   {
@@ -31,16 +36,16 @@ const groups = [
       { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { name: "Modules", href: "/dashboard/modules", icon: Brain },
       { name: "Clinical Reports", href: "/dashboard/reports", icon: FileText },
-    ]
+    ],
   },
   {
     title: "Therapeutic",
     items: [
-      { name: "AI Therapy", href: "/dashboard/therapy/chat", icon: MessageSquare },
+      { name: "AI Therapy Chat", href: "/dashboard/therapy/chat", icon: MessageSquare },
+      { name: "Video Session", href: "/dashboard/avatar", icon: Bot },
       { name: "Chat History", href: "/dashboard/sessions", icon: History },
-      { name: "Therapy Avatar", href: "/dashboard/avatar", icon: Bot },
       { name: "Immersive", href: "/dashboard/immersive", icon: Glasses, locked: true },
-    ]
+    ],
   },
   {
     title: "Management",
@@ -48,11 +53,18 @@ const groups = [
       { name: "Public Profile", href: "/dashboard/profile", icon: User },
       { name: "Account Settings", href: "/dashboard/settings", icon: Settings },
       { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
-    ]
-  }
+    ],
+  },
 ];
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+
+function SidebarContent({
+  onNavigate,
+  onOpenCalm,
+}: {
+  onNavigate?: () => void;
+  onOpenCalm: () => void;
+}) {
   const pathname = usePathname();
   const { user } = useUserStore();
 
@@ -73,6 +85,21 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 space-y-8 p-4 overflow-y-auto custom-scrollbar">
+        {/* Emergency Calm Mode Trigger */}
+        <div className="px-2">
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 rounded-2xl border-rose-500/20 bg-rose-500/5 text-rose-500 hover:bg-rose-500 hover:text-white transition-all group relative overflow-hidden"
+            onClick={onOpenCalm}
+          >
+            <div className="absolute inset-0 bg-rose-500/10 group-hover:bg-transparent animate-pulse" />
+            <ShieldAlert className="h-4 w-4 relative z-10" />
+            <span className="font-black text-[10px] uppercase tracking-widest relative z-10">
+              Emergency Calm
+            </span>
+          </Button>
+        </div>
+
         {groups.map((group) => (
           <div key={group.title} className="space-y-3">
             <h3 className="px-4 text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40">
@@ -114,7 +141,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                     <item.icon
                       className={cn(
                         "h-4 w-4 transition-transform duration-300 group-hover:scale-110",
-                        isActive ? "text-white" : "text-muted-foreground/70 group-hover:text-primary",
+                        isActive
+                          ? "text-white"
+                          : "text-muted-foreground/70 group-hover:text-primary",
                       )}
                     />
                     <span className="flex-1 truncate">{item.name}</span>
@@ -132,7 +161,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="p-4 mt-auto">
+
+      <div className="p-4 pt-0">
         <div className="rounded-[2rem] bg-card border border-primary/10 p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -141,17 +171,19 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-black capitalize">{user?.role || "Free"}</p>
+            <p className="text-sm font-black capitalize">
+              {user?.role || "Free"}
+            </p>
             <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground">
               <span>Account Usage</span>
               <span className="text-primary">Syncing...</span>
             </div>
           </div>
           <div className="h-1.5 w-full bg-primary/5 rounded-full overflow-hidden">
-            <motion.div 
+            <motion.div
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
-              className="h-full bg-primary/20 rounded-full" 
+              className="h-full bg-primary/20 rounded-full"
             />
           </div>
         </div>
@@ -162,14 +194,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DashboardSidebar() {
   const [open, setOpen] = useState(false);
+  const [isCalmOpen, setIsCalmOpen] = useState(false);
 
   return (
     <>
+      {/* Emergency Calm Portal */}
+      <EmergencyCalm isOpen={isCalmOpen} onClose={() => setIsCalmOpen(false)} />
+
       {/* Mobile Sidebar */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="p-0 w-72 border-r-0">
           <div className="h-full bg-background/95 backdrop-blur-xl">
-            <SidebarContent onNavigate={() => setOpen(false)} />
+            <SidebarContent
+              onNavigate={() => setOpen(false)}
+              onOpenCalm={() => {
+                setIsCalmOpen(true);
+                setOpen(false);
+              }}
+            />
           </div>
         </SheetContent>
       </Sheet>
@@ -188,7 +230,7 @@ export function DashboardSidebar() {
 
       {/* Desktop: fill the container provided by layout.tsx */}
       <div className="hidden md:flex flex-col h-full bg-card/50 backdrop-blur-sm">
-        <SidebarContent />
+        <SidebarContent onOpenCalm={() => setIsCalmOpen(true)} />
       </div>
     </>
   );

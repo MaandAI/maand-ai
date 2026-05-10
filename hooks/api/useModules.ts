@@ -1,12 +1,40 @@
 import { useState, useCallback, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
-import { TherapyModuleWithProgress } from "@/backend/validators/modules.schema";
-
 import { useToast } from "@/hooks/use-toast";
+
+export interface IModuleStage {
+  id: string;
+  title: string;
+  description: string;
+  type: "ai_session" | "exercise" | "reflection" | "voice_session" | "assessment";
+  duration: number;
+  order: number;
+  content?: { exerciseType?: string };
+}
+
+export interface IModule {
+  _id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  durationWeeks: number;
+  totalStages: number;
+  clinicalBasis: string;
+  stages: IModuleStage[];
+  meta?: { color: string; emoji: string };
+  userProgress: {
+    status: string;
+    progressPercentage: number;
+    completedStages: string[];
+    currentStageId?: string;
+    streak: number;
+  };
+}
 
 export function useModulesAPI() {
   const { toast } = useToast();
-  const [modules, setModules] = useState<TherapyModuleWithProgress[]>([]);
+  const [modules, setModules] = useState<IModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,8 +44,9 @@ export function useModulesAPI() {
     try {
       const response = await apiClient.get<{
         success: boolean;
-        data: TherapyModuleWithProgress[];
-      }>("/therapy-modules");
+        data: IModule[];
+      }>("/modules");
+      console.log("Fetched Modules", response.data.data);
       setModules(response.data.data);
     } catch (err: any) {
       const msg = err.response?.data?.error || "Failed to fetch modules";
@@ -29,40 +58,8 @@ export function useModulesAPI() {
   }, [toast]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      fetchModules();
-    }
+    fetchModules();
   }, [fetchModules]);
 
-  const updateProgress = async (
-    moduleId: string,
-    progress: number,
-    status: string,
-    sessionsCompleted: number,
-  ) => {
-    try {
-      await apiClient.post("/therapy-modules", {
-        moduleId,
-        progress,
-        status,
-        sessionsCompleted,
-      });
-      // Optimistic update
-      setModules((prev) =>
-        prev.map((m) =>
-          m.id === moduleId
-            ? { ...m, progress, status: status as any, sessionsCompleted }
-            : m,
-        ),
-      );
-      toast({ title: "Progress Saved", description: "Your module progress has been updated." });
-    } catch (err: any) {
-      const msg = err.response?.data?.error || "Failed to update progress";
-      toast({ title: "Save Error", description: msg, variant: "destructive" });
-      throw err;
-    }
-  };
-
-  return { modules, loading, error, refresh: fetchModules, updateProgress };
+  return { modules, loading, error, refresh: fetchModules };
 }
-

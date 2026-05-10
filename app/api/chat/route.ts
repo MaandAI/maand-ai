@@ -18,7 +18,7 @@ const ChatInputSchema = z.object({
     .max(1000, "Message too long"),
   persona: z
     .object({
-      description: z.string().max(500).optional(),
+      description: z.string().max(2000).optional(),
     })
     .optional()
     .nullable(),
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       console.warn("HF Emotion detection failed, defaulting to neutral", e);
     }
 
-    // 3. Save User Message immediately
+    // 3. Save User Message FIRST — before any AI call that might throw
     await ChatService.saveMessage(userId, {
       sessionId,
       content: message,
@@ -118,41 +118,35 @@ Persona guidelines: ${persona?.description || "Calm, gentle, supportive, and ref
 The user's detected emotional state right now is: ${emotion}.
 Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.`;
 
-      // Try generating content with gemini-1.5-flash, fallback to gemini-pro if it fails
-      console.log("Generating AI response with Gemini...");
       try {
-        const model = genAI.getGenerativeModel({
-          model: "gemini-2.5-flash",
-          systemInstruction: systemPrompt,
-        });
-        const result = await model.generateContent(message);
-        aiResponseContent = result.response.text();
-      } catch (e) {
-        console.warn(
-          "Gemini 1.5 Flash failed, falling back to Gemini 1.5 Pro",
-          e,
-        );
-        const fallbackModel = genAI.getGenerativeModel({
-          model: "gemini-1.5-pro",
-          systemInstruction: systemPrompt,
-        });
-        const result = await fallbackModel.generateContent(message);
-        aiResponseContent = result.response.text();
+        try {
+          const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: systemPrompt,
+          });
+          const result = await model.generateContent(message);
+          aiResponseContent = result.response.text();
+        } catch (e) {
+          console.warn("gemini-2.5-flash failed, falling back to gemini-2.0-flash", e);
+          const fallbackModel = genAI.getGenerativeModel({
+            model: "gemini-2.0-flash",
+            systemInstruction: systemPrompt,
+          });
+          const result = await fallbackModel.generateContent(message);
+          aiResponseContent = result.response.text();
+        }
+      } catch (aiErr) {
+        console.error("All Gemini models failed:", aiErr);
+        aiResponseContent = "I hear you, and I\'m here with you. Could you tell me a little more about what you\'re experiencing right now?";
       }
-      console.log(
-        "AI Response generated:",
-        aiResponseContent.substring(0, 50) + "...",
-      );
     }
 
     // 5. Save AI Response
-    console.log("Saving AI response to DB...");
     await ChatService.saveMessage(userId, {
       sessionId,
       content: aiResponseContent,
       sender: "ai",
     });
-    console.log("AI response saved successfully.");
 
     // 6. Update Session metrics (Total duration from start of session)
     const sessionDoc = await ChatSession.findById(sessionId);

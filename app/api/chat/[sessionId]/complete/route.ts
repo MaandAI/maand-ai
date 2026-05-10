@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { ChatService } from "@/backend/services/chat.service";
+import Report from "@/models/Report";
+import dbConnect from "@/lib/mongodb";
 
 export async function POST(
   req: NextRequest,
@@ -16,14 +18,16 @@ export async function POST(
     const userId = (session.user as any).id;
     const { sessionId } = await params;
 
-    const completedSession = await ChatService.completeSession(
-      userId,
-      sessionId,
-    );
+    const completedSession = await ChatService.completeSession(userId, sessionId);
+
+    // Fetch the report that was just generated
+    await dbConnect();
+    const report = await Report.findOne({ sessionId }).select("_id").lean();
 
     return NextResponse.json({
       success: true,
       session: completedSession,
+      reportId: report ? (report as any)._id.toString() : null,
     });
   } catch (error: any) {
     console.error("Session Completion Error:", error);

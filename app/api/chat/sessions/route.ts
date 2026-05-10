@@ -30,8 +30,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return withAuth(req, async (req, user) => {
     try {
-      const { persona, title } = await req.json();
-      const sessionId = await ChatService.createSession(user.id, persona || null, title);
+      // Gracefully handle empty body (POST with no JSON payload)
+      let persona = null, title = undefined;
+      try {
+        const body = await req.json();
+        persona = body.persona || null;
+        title = body.title;
+      } catch { /* empty body is fine */ }
+
+      const sessionId = await ChatService.createSession(user.id, persona, title);
       
       return NextResponse.json({ 
         success: true, 

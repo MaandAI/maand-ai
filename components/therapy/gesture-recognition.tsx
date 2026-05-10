@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
-import { analyzeHandGestures, GestureResult } from "@/utils/gesture-detection";
+import { analyzeGestures, GestureResult } from "@/utils/gesture-detection";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,10 +10,16 @@ import { cn } from "@/lib/utils";
 
 interface GestureRecognitionProps {
   onGestureDetected: (result: GestureResult) => void;
+  stream?: MediaStream | null;
+  autoStart?: boolean;
+  hiddenUI?: boolean;
 }
 
 export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
   onGestureDetected,
+  stream,
+  autoStart,
+  hiddenUI,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,9 +76,12 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
   const enableWebcam = async () => {
     if (!handLandmarkerRef.current) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      let activeStream = stream;
+      if (!activeStream) {
+        activeStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+      if (videoRef.current && activeStream) {
+        videoRef.current.srcObject = activeStream;
         videoRef.current.addEventListener("loadeddata", predictWebcam);
         setIsWebcamEnabled(true);
       }
@@ -84,8 +93,11 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
 
   const stopWebcam = () => {
     if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
+      if (!stream) {
+        // Only stop tracks if we own the stream
+        const activeStream = videoRef.current.srcObject as MediaStream;
+        activeStream.getTracks().forEach((track) => track.stop());
+      }
       videoRef.current.srcObject = null;
     }
     if (animationFrameRef.current) {
@@ -93,6 +105,18 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
     }
     setIsWebcamEnabled(false);
   };
+
+  useEffect(() => {
+    if (autoStart && handLandmarkerRef.current && !isWebcamEnabled && (stream || !stream)) {
+       enableWebcam();
+    }
+  }, [autoStart, stream, handLandmarkerRef.current]);
+
+  useEffect(() => {
+    if (stream && isWebcamEnabled && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
 
   const predictWebcam = useCallback(async () => {
     if (
@@ -150,10 +174,10 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
         }
 
         // Analyze gesture
-        const gestureInfo = analyzeHandGestures(landmarks);
+        const gestureInfo = analyzeGestures(landmarks);
 
         // Debounce: Only trigger if the same gesture is held for ~5 frames
-        if (gestureInfo.intent !== "Unknown") {
+        if (gestureInfo.intent !== "None") {
           if (consecutiveGesturesRef.current.label === gestureInfo.label) {
             consecutiveGesturesRef.current.count++;
             if (consecutiveGesturesRef.current.count === 15) {
@@ -186,6 +210,15 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
       predictWebcam();
     }
   }, [isWebcamEnabled, predictWebcam]);
+
+  if (hiddenUI) {
+    return (
+      <div className="hidden">
+        <video ref={videoRef} autoPlay playsInline muted />
+        <canvas ref={canvasRef} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 rounded-[2rem] border border-primary/10 p-5 bg-card/40 backdrop-blur-xl w-full mb-8 shadow-sm">
@@ -241,6 +274,7 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
           className="absolute inset-0 w-full h-full object-cover -scale-x-100 opacity-40 grayscale"
           autoPlay
           playsInline
+          muted
         />
         <canvas
           ref={canvasRef}

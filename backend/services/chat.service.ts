@@ -32,9 +32,14 @@ export class ChatService {
     return session._id.toString();
   }
 
-  static async getSessions(userId: string, query: any = {}): Promise<IChatSession[]> {
+  static async getSessions(
+    userId: string,
+    query: any = {},
+  ): Promise<IChatSession[]> {
     await dbConnect();
-    const sessions = await ChatSession.find({ userId, ...query }).sort({ updatedAt: -1 });
+    const sessions = await ChatSession.find({ userId, ...query }).sort({
+      updatedAt: -1,
+    });
 
     return sessions.map((doc) => ({
       id: doc._id.toString(),
@@ -124,7 +129,9 @@ export class ChatService {
 
     if (!settings.aiPreferences.autoReport) {
       // Skip report generation — just mark session as completed
-      console.log(`[ChatService] autoReport disabled for user ${userId}, skipping report.`);
+      console.log(
+        `[ChatService] autoReport disabled for user ${userId}, skipping report.`,
+      );
       chatSession.status = "completed";
       await chatSession.save();
 
@@ -210,7 +217,9 @@ export class ChatService {
       createdReport = await Report.create({
         userId,
         sessionId,
-        title: chatSession.title || `Report for Session ${new Date().toLocaleDateString()}`,
+        title:
+          chatSession.title ||
+          `Report for Session ${new Date().toLocaleDateString()}`,
         summary: parsedReport.summary,
         emotionalTrends: parsedReport.emotional_trends,
         keyTopics: parsedReport.key_topics,
@@ -239,7 +248,12 @@ export class ChatService {
     }
 
     // 8. Send report-ready email (respecting email notification settings)
-    if (settings.notifications.report && settings.notifications.email && userInfo && createdReport) {
+    if (
+      settings.notifications.report &&
+      settings.notifications.email &&
+      userInfo &&
+      createdReport
+    ) {
       sendReportReadyEmail(
         userInfo.email,
         userInfo.name,
@@ -255,14 +269,20 @@ export class ChatService {
               emailedAt: new Date(),
             });
           } else {
-            await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "failed" });
+            await Report.findByIdAndUpdate(createdReport._id, {
+              deliveryStatus: "failed",
+            });
           }
         })
         .catch(async () => {
-          await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "failed" });
+          await Report.findByIdAndUpdate(createdReport._id, {
+            deliveryStatus: "failed",
+          });
         });
     } else if (createdReport) {
-      await Report.findByIdAndUpdate(createdReport._id, { deliveryStatus: "skipped" });
+      await Report.findByIdAndUpdate(createdReport._id, {
+        deliveryStatus: "skipped",
+      });
     }
 
     return chatSession;
