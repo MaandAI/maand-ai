@@ -16,6 +16,75 @@ import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { THERAPIST_PERSONAS } from "@/lib/therapist-personas";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+
+function downloadReport(s: any) {
+  const doc = new jsPDF();
+  const p = THERAPIST_PERSONAS[s.therapistId];
+
+  // Header
+  doc.setFontSize(22);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Clinical Session Report", 14, 22);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Generated on ${format(new Date(), "MMMM d, yyyy")}`, 14, 30);
+  doc.text(`Maand AI Therapy Platform`, 14, 35);
+
+  // Session Info
+  autoTable(doc, {
+    startY: 45,
+    head: [["Session Attribute", "Details"]],
+    body: [
+      ["Date", format(new Date(s.createdAt), "MMMM d, yyyy")],
+      ["Therapist", s.therapistName || p?.name || "AI Assistant"],
+      ["Duration", `${Math.floor(s.durationSeconds / 60)}m ${s.durationSeconds % 60}s`],
+      ["Status", s.status.toUpperCase()],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [79, 70, 229] }
+  });
+
+  // Emotional Summary
+  doc.setFontSize(14);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Clinical Summary", 14, (doc as any).lastAutoTable.finalY + 15);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(60, 60, 60);
+  const summary = s.emotionalSummary || "No summary available for this session.";
+  const splitSummary = doc.splitTextToSize(summary, 180);
+  doc.text(splitSummary, 14, (doc as any).lastAutoTable.finalY + 22);
+
+  // Key Topics
+  if (s.keyTopics?.length) {
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 35,
+      head: [["Key Topics Discussed"]],
+      body: s.keyTopics.map((t: string) => [t]),
+      theme: 'grid',
+      headStyles: { fillColor: [100, 100, 100] }
+    });
+  }
+
+  // Recommendations
+  doc.setFontSize(14);
+  doc.text("Therapeutic Recommendations", 14, (doc as any).lastAutoTable.finalY + 15);
+  doc.setFontSize(10);
+  const recs = "Continue practicing the grounding exercises discussed. Focus on identifying the triggers identified in today's exploration. Schedule a follow-up session within 3 days.";
+  const splitRecs = doc.splitTextToSize(recs, 180);
+  doc.text(splitRecs, 14, (doc as any).lastAutoTable.finalY + 22);
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text("Confidential Clinical Document - For Personal Review Only", 14, 285);
+
+  doc.save(`Maand_Session_${s._id || s.id}.pdf`);
+}
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -111,14 +180,21 @@ function VideoCard({ s, onViewTranscript }: { s: any; onViewTranscript?: (s: any
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
+        {s.recordingUrl && (
+          <Button asChild variant="outline" size="sm" className="rounded-xl border-emerald-500/15 text-emerald-500 hover:text-emerald-400 text-xs hidden sm:flex">
+            <a href={s.recordingUrl} target="_blank" rel="noopener noreferrer">
+              <PlayCircle className="h-3.5 w-3.5 mr-1" />Watch
+            </a>
+          </Button>
+        )}
         {s.transcript?.length > 0 && onViewTranscript && (
           <Button variant="outline" size="sm" className="rounded-xl border-primary/15 text-xs hidden sm:flex" onClick={() => onViewTranscript(s)}>
             <Eye className="h-3.5 w-3.5 mr-1" />Transcript
           </Button>
         )}
         {s.keyTopics?.length > 0 && (
-          <Button asChild variant="outline" size="sm" className="rounded-xl border-primary/15 text-xs hidden sm:flex">
-            <Link href="/dashboard/reports"><FileText className="h-3.5 w-3.5 mr-1" />Report</Link>
+          <Button variant="outline" size="sm" className="rounded-xl border-primary/15 text-xs hidden sm:flex" onClick={() => downloadReport(s)}>
+            <Download className="h-3.5 w-3.5 mr-1" />Download Report
           </Button>
         )}
         {s.status === "active" && (

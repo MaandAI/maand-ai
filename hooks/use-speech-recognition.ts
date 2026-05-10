@@ -44,11 +44,20 @@ export function useSpeechRecognition({
 
     rec.onend = () => {
       if (isListeningRef.current && continuous) {
-        try { rec.start(); } catch { 
-          isListeningRef.current = false;
-          setIsListening(false);
-          if (onEnd) onEnd();
-        }
+        // Stagger restart to avoid service spam on network glitches
+        setTimeout(() => {
+          if (isListeningRef.current) {
+            try {
+              rec.start();
+            } catch (e) {
+              // Only fail if it's actually dead and not just already started
+              if (!isListeningRef.current) {
+                setIsListening(false);
+                if (onEnd) onEnd();
+              }
+            }
+          }
+        }, 1000);
       } else {
         isListeningRef.current = false;
         setIsListening(false);
@@ -57,9 +66,15 @@ export function useSpeechRecognition({
     };
 
     rec.onerror = (e: any) => {
+      console.error("STT Error:", e.error);
       if (e.error === 'no-speech' || e.error === 'aborted') return;
-      isListeningRef.current = false;
-      setIsListening(false);
+      
+      // Critical errors should stop the session
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        isListeningRef.current = false;
+        setIsListening(false);
+      }
+      
       if (onError) onError(e.error);
     };
 
@@ -77,15 +92,6 @@ export function useSpeechRecognition({
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
       toast({ title: "Not Supported", description: "Speech recognition is not supported in this browser.", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-    } catch (err) {
-      toast({ title: "Mic Permission Denied", description: "Please allow microphone access in your browser settings.", variant: "destructive" });
-      if (onError) onError("not-allowed");
       return;
     }
 

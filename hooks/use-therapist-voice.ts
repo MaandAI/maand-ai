@@ -56,33 +56,49 @@ export function useTherapistVoice({ voice, enabled }: UseTherapistVoiceOptions) 
   }, [voice.voiceNames]);
 
   const speak = useCallback(
-    (text: string) => {
-      if (!enabled || !synthRef.current || !voiceReady) return;
+    (text: string): Promise<void> => {
+      return new Promise((resolve) => {
+        if (!enabled || !synthRef.current || !voiceReady) {
+          resolve();
+          return;
+        }
 
-      // Cancel any current speech
-      synthRef.current.cancel();
+        // Fix for notorious Chrome speech engine stall bug
+        synthRef.current.cancel();
+        synthRef.current.resume();
 
-      // Strip markdown formatting for cleaner speech
-      const cleanText = text
-        .replace(/\*\*(.*?)\*\*/g, "$1")
-        .replace(/\*(.*?)\*/g, "$1")
-        .replace(/#{1,6}\s/g, "")
-        .replace(/\n+/g, ". ");
+        // Strip markdown formatting for cleaner speech
+        const cleanText = text
+          .replace(/\*\*(.*?)\*\*/g, "$1")
+          .replace(/\*(.*?)\*/g, "$1")
+          .replace(/#{1,6}\s/g, "")
+          .replace(/\n+/g, ". ");
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = voice.rate;
-      utterance.pitch = voice.pitch;
-      utterance.volume = voice.volume;
-      if (resolvedVoiceRef.current) {
-        utterance.voice = resolvedVoiceRef.current;
-      }
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = voice.rate;
+        utterance.pitch = voice.pitch;
+        utterance.volume = voice.volume;
+        if (resolvedVoiceRef.current) {
+          utterance.voice = resolvedVoiceRef.current;
+        }
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+        // Chrome bug: long utterances get garbage collected unless bound to window
+        (window as any)._currentUtterance = utterance;
 
-      utteranceRef.current = utterance;
-      synthRef.current.speak(utterance);
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          resolve();
+        };
+        utterance.onerror = (e) => {
+          console.error("Speech Synthesis Error:", e);
+          setIsSpeaking(false);
+          resolve();
+        };
+
+        utteranceRef.current = utterance;
+        synthRef.current.speak(utterance);
+      });
     },
     [enabled, voiceReady, voice.rate, voice.pitch, voice.volume]
   );

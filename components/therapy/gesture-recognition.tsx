@@ -13,6 +13,7 @@ interface GestureRecognitionProps {
   stream?: MediaStream | null;
   autoStart?: boolean;
   hiddenUI?: boolean;
+  asOverlay?: boolean;
 }
 
 export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
@@ -20,12 +21,14 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
   stream,
   autoStart,
   hiddenUI,
+  asOverlay,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isWebcamEnabled, setIsWebcamEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false); // true once MediaPipe model is loaded
   const [error, setError] = useState<string | null>(null);
 
   const handLandmarkerRef = useRef<HandLandmarker | null>(null);
@@ -55,6 +58,8 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
         numHands: 1,
       });
       handLandmarkerRef.current = landmarker;
+      setIsReady(true);
+      console.log("[GestureRecognition] ✅ MediaPipe HandLandmarker ready");
     } catch (e: any) {
       console.error("Failed to initialize MediaPipe:", e);
       setError("Failed to load gesture recognition model.");
@@ -106,11 +111,13 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
     setIsWebcamEnabled(false);
   };
 
+  // Auto-start when MediaPipe is ready AND a stream is available or autoStart is requested
   useEffect(() => {
-    if (autoStart && handLandmarkerRef.current && !isWebcamEnabled && (stream || !stream)) {
-       enableWebcam();
+    if (autoStart && isReady && !isWebcamEnabled) {
+      console.log("[GestureRecognition] 🚀 Auto-starting gesture detection");
+      enableWebcam();
     }
-  }, [autoStart, stream, handLandmarkerRef.current]);
+  }, [autoStart, isReady]);
 
   useEffect(() => {
     if (stream && isWebcamEnabled && videoRef.current) {
@@ -216,6 +223,16 @@ export const GestureRecognition: React.FC<GestureRecognitionProps> = ({
       <div className="hidden">
         <video ref={videoRef} autoPlay playsInline muted />
         <canvas ref={canvasRef} />
+      </div>
+    );
+  }
+
+  if (asOverlay) {
+    return (
+      <div className="absolute inset-0 pointer-events-none z-10">
+        {/* Hidden video just for mediapipe processing, canvas shows the landmarks */}
+        <video ref={videoRef} className="hidden" autoPlay playsInline muted />
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover -scale-x-100" />
       </div>
     );
   }

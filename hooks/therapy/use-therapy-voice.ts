@@ -20,11 +20,23 @@ export function useTherapyVoice() {
 
         recognitionRef.current.onerror = (event: any) => {
           console.error("Speech recognition error", event.error);
-          setIsListening(false);
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setIsListening(false);
+          }
         };
 
         recognitionRef.current.onend = () => {
-          if (isListening) recognitionRef.current?.start();
+          if (isListening) {
+            setTimeout(() => {
+              if (isListening) {
+                try {
+                  recognitionRef.current?.start();
+                } catch (e) {
+                  console.warn("STT restart failed:", e);
+                }
+              }
+            }, 1000);
+          }
         };
       }
     }

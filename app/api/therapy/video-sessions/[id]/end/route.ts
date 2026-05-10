@@ -8,8 +8,15 @@ import cloudinary from "@/lib/cloudinary";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+/** Wraps a promise with a hard timeout. Resolves to null on timeout. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 // POST /api/therapy/video-sessions/[id]/end
-// Ends the session, generates notes + summary via Gemini, saves to DB
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -35,25 +42,25 @@ export async function POST(
         .join("\n");
 
       // Read body safely
-      let clientGestureInsights = [];
+      let clientGestureInsights: any[] = [];
       try {
         const body = await req.json();
         if (body?.gestureInsights) clientGestureInsights = body.gestureInsights;
-      } catch(e) {}
+      } catch {}
 
       const allGestures = [...(session.gestureInsights || []), ...clientGestureInsights];
-      const gestureText = allGestures
-        .map((g: any) => `- ${g.meaning} (${g.gesture})`)
-        .join("\n") || "No gestures recorded.";
+      const gestureText =
+        allGestures.map((g: any) => `- ${g.meaning} (${g.gesture})`).join("\n") ||
+        "No gestures recorded.";
 
-      // Generate session notes via Gemini
+      // ── Generate session notes via Gemini ──────────────────────
       let sessionNotes = "";
       let keyTopics: string[] = [];
       let recommendations: string[] = [];
       let emotionalSummary = "";
       let riskLevel = "none";
 
-      if (transcriptText.length > 50) {
+      if (transcriptText.length > 10) {
         const prompt = `You are a clinical therapist supervisor reviewing a therapy session transcript.
 Therapist: ${session.therapistName} (AI Therapist)
 Session Duration: ${Math.floor(durationSeconds / 60)} minutes
@@ -79,31 +86,38 @@ Respond in exactly this JSON format:
 }`;
 
         try {
-          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-          const result = await model.generateContent(prompt);
-          const raw = result.response.text();
-          const jsonMatch = raw.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            sessionNotes = parsed.sessionNotes || "";
-            keyTopics = parsed.keyTopics || [];
-            recommendations = parsed.recommendations || [];
-            emotionalSummary = parsed.emotionalSummary || "";
-            riskLevel = parsed.riskLevel || "none";
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+          // 30-second timeout for Gemini
+          const result = await withTimeout(model.generateContent(prompt), 30_000);
+          if (result) {
+            const raw = result.response.text();
+            const jsonMatch = raw.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              sessionNotes = parsed.sessionNotes || "";
+              keyTopics = parsed.keyTopics || [];
+              recommendations = parsed.recommendations || [];
+              emotionalSummary = parsed.emotionalSummary || "";
+              riskLevel = parsed.riskLevel || "none";
+            }
           }
         } catch (e) {
           console.warn("[VideoSession END] Gemini generation failed:", e);
+        }
+
+        // Fallbacks if Gemini failed or timed out
+        if (!sessionNotes) {
           sessionNotes = `Session with ${session.therapistName} lasting ${Math.floor(durationSeconds / 60)} minutes. ${session.transcript.length} exchanges recorded.`;
-          keyTopics = session.emotionalJourney.slice(0, 5);
+          keyTopics = session.emotionalJourney?.slice(0, 5) || [];
           recommendations = ["Continue regular therapy sessions", "Practice coping strategies discussed"];
           emotionalSummary = "Session completed successfully.";
         }
       } else {
         sessionNotes = `Brief session with ${session.therapistName}. Limited transcript available.`;
-        emotionalSummary = "Session ended early.";
+        emotionalSummary = "Session completed.";
       }
 
-      // Upload to Cloudinary
+      // ── Cloudinary upload (non-blocking, 10s timeout) ──────────
       let contentUrl = "";
       try {
         const reportData = {
@@ -111,9 +125,10 @@ Respond in exactly this JSON format:
           key_topics: keyTopics,
           recommendations,
           emotional_trends: emotionalSummary,
-          risk_assessment: riskLevel
+          risk_assessment: riskLevel,
         };
-        const uploadRes = (await new Promise((resolve, reject) => {
+
+        const uploadPromise = new Promise<string>((resolve, reject) => {
           cloudinary.uploader.upload(
             `data:application/json;base64,${Buffer.from(JSON.stringify(reportData)).toString("base64")}`,
             {
@@ -124,35 +139,38 @@ Respond in exactly this JSON format:
             },
             (error, result) => {
               if (error) reject(error);
-              else resolve(result);
-            },
+              else resolve((result as any).secure_url);
+            }
           );
-        })) as any;
-        contentUrl = uploadRes.secure_url;
-      } catch(e) {
-        console.error("Cloudinary upload failed", e);
+        });
+
+        const uploadResult = await withTimeout(uploadPromise, 10_000);
+        if (uploadResult) contentUrl = uploadResult;
+      } catch (e) {
+        console.warn("[VideoSession END] Cloudinary upload failed (non-blocking):", e);
+        // Continue — report is still created without a content URL
       }
 
-      // Create Report document
+      // ── Create Report document ─────────────────────────────────
       try {
         await Report.create({
           userId: user.id,
           sessionId: id,
-          title: `Video Session ${new Date().toLocaleDateString()}`,
+          title: `Video Session — ${new Date().toLocaleDateString()}`,
           summary: sessionNotes,
           emotionalTrends: emotionalSummary,
-          keyTopics: keyTopics,
-          recommendations: recommendations,
+          keyTopics,
+          recommendations,
           riskAssessment: riskLevel,
           contentUrl: contentUrl || undefined,
           isFavorite: false,
           deliveryStatus: "pending",
         });
-      } catch(e) {
-        console.error("Failed to create report doc", e);
+      } catch (e) {
+        console.error("[VideoSession END] Failed to create report doc:", e);
       }
 
-      // Update session in DB
+      // ── Update session in DB ───────────────────────────────────
       await VideoSession.findByIdAndUpdate(id, {
         status: "completed",
         endedAt,

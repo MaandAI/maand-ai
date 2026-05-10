@@ -5,17 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiClient } from "@/lib/api-client";
 import { getPersona } from "@/lib/therapist-personas";
-import { useTherapistVoice } from "@/hooks/use-therapist-voice";
+import { useTavusSession } from "@/hooks/use-tavus-session";
 import { useTherapistStore } from "@/lib/store/therapist-store";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { GestureRecognition } from "@/components/therapy/gesture-recognition";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import type { GestureResult } from "@/utils/gesture-detection";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
-  Mic, MicOff, Video, VideoOff, MonitorUp, Phone,
-  MessageSquare, FileText, Brain, CheckCircle2, Circle,
+  Mic, MicOff, Video, VideoOff, Phone, MessageSquare,
+  FileText, CheckCircle2, Send, Brain, Loader2,
 } from "lucide-react";
 
 function fmt(s: number) {
@@ -24,623 +22,434 @@ function fmt(s: number) {
 
 interface TEntry { speaker: "user" | "therapist"; text: string; }
 
+const BTN = "h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300";
+const BTN_ON = "bg-white/10 text-white hover:bg-white/20";
+const BTN_OFF = "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30";
+
 export default function VideoSessionPage() {
   const params = useParams();
   const router = useRouter();
   const therapistId = (params?.therapistId as string) || "ava";
   const persona = getPersona(therapistId);
+  const { startSession, endSession: endStoreSession, setAvatarState } = useTherapistStore();
 
-  // Global therapist store — keeps sidebar in sync
-  const {
-    startSession,
-    endSession: endStoreSession,
-    setAvatarState: setStoreAvatarState,
-  } = useTherapistStore();
-
-  const [sessionId, setSessionId]   = useState<string | null>(null);
-  const [phase, setPhase]           = useState<"starting"|"ready"|"active"|"ending"|"report">("starting");
-  const [elapsed, setElapsed]       = useState(0);
+  // ── All state/refs first — no temporal dead zone ─────────────────
+  const [phase, setPhase] = useState<"starting"|"ready"|"active"|"ending"|"report">("starting");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [transcript, setTranscript] = useState<TEntry[]>([]);
-  const [report, setReport]         = useState<any>(null);
+  const [report, setReport] = useState<any>(null);
+  const [micOn, setMicOn] = useState(true);
+  const [camOn, setCamOn] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [caption, setCaption] = useState("");
+  const [interimCaption, setInterimCaption] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [gestureInsights, setGestureInsights] = useState<{meaning:string;gesture:string;timestamp:Date}[]>([]);
 
-  const [camOn,    setCamOn]    = useState(false);
-  const [micOn,    setMicOn]    = useState(true);
-  const [sharing,  setSharing]  = useState(false);
-  const [aiTyping, setAiTyping]  = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [caption, setCaption]    = useState("");
-  const [interimTranscript, setInterimTranscript] = useState("");
-  const [showTx,  setShowTx]    = useState(true);
-  const [recording, setRecording] = useState(false);
-
-  const camRef     = useRef<HTMLVideoElement>(null);   // user camera PiP
-  const screenRef  = useRef<HTMLVideoElement>(null);   // screen share (not used for display yet)
-  const camStream  = useRef<MediaStream | null>(null);
-  const screenStream = useRef<MediaStream | null>(null);
-  const recRef     = useRef<MediaRecorder | null>(null);
-  const recChunks  = useRef<Blob[]>([]);
-  const timerRef   = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
-  const txEndRef   = useRef<HTMLDivElement>(null);
+  const camRef = useRef<HTMLVideoElement>(null);
+  const txEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<TEntry[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [gestureInsights, setGestureInsights] = useState<{ meaning: string; gesture: string; timestamp: Date }[]>([]);
-  const gestureInsightsRef = useRef<{ meaning: string; gesture: string; timestamp: Date }[]>([]);
+  const gestureRef = useRef(gestureInsights);
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const recRef = useRef<MediaRecorder | null>(null);
+  const recChunks = useRef<Blob[]>([]);
+  const camStream = useRef<MediaStream | null>(null);
 
-  // Re-bind camera and ensure playback
-  useEffect(() => {
-    if (phase === "active" && camRef.current && camStream.current && camRef.current.srcObject !== camStream.current) {
-      camRef.current.srcObject = camStream.current;
-      camRef.current.play().catch(() => {});
-    }
-  }, [phase, camOn]);
-
-  const { speak, stop: stopVoice } = useTherapistVoice({ voice: persona.voice, enabled: true });
-
-  // keep refs in sync
+  // Keep refs in sync
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
-  useEffect(() => {
-    transcriptRef.current = transcript;
-    txEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
+  useEffect(() => { transcriptRef.current = transcript; txEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [transcript]);
+  useEffect(() => { gestureRef.current = gestureInsights; }, [gestureInsights]);
 
-  // timer & session limits
+  // Re-bind camera stream whenever phase changes (new video element mounts)
   useEffect(() => {
-    if (phase !== "active") return;
-    timerRef.current = setInterval(() => {
-      setElapsed(e => {
-        if (e >= 300) { // 5 minutes max
-          clearInterval(timerRef.current);
-          endSession();
-          return e;
-        }
-        return e + 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const stream = camStream.current;
+    const el = camRef.current;
+    if (stream && el && el.srcObject !== stream) {
+      el.srcObject = stream;
+      el.play().catch(() => {});
+    }
   }, [phase]);
 
-  // INIT
-  useEffect(() => {
-    init();
-    return () => cleanup();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // ── Stable helpers (no deps on late-declared state) ───────────────
+  const saveEntry = useCallback((speaker: string, text: string) => {
+    if (!sessionIdRef.current) return;
+    apiClient.post(`/therapy/video-sessions/${sessionIdRef.current}/transcript`, { speaker, text }).catch(() => {});
   }, []);
 
-  const init = async () => {
-    // camera — optional, don't block if denied
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      camStream.current = s;
-      if (camRef.current) camRef.current.srcObject = s;
-      setCamOn(true);
-    } catch {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-        camStream.current = s;
-      } catch { /* no mic either */ }
+  const addTranscript = useCallback((speaker: "user"|"therapist", text: string, isFinal: boolean) => {
+    const clean = text.trim();
+    if (!clean) return;
+    if (!isFinal && speaker === "user") {
+      setInterimCaption(`You: ${clean}`);
+      return;
     }
+    setInterimCaption("");
+    setTranscript(p => {
+      const last = p[p.length - 1];
+      if (last?.speaker === speaker && last?.text === clean) return p;
+      return [...p, { speaker, text: clean }];
+    });
+    const label = speaker === "user" ? "You" : persona.name;
+    setCaption(`${label}: ${clean.slice(0, 100)}${clean.length > 100 ? "…" : ""}`);
+    saveEntry(speaker, clean);
+  }, [persona.name, saveEntry]);
 
-    // create DB session
+  // ── Tavus — meeting engine ─────────────────────────────────────────
+  const tavus = useTavusSession({
+    onTranscript: useCallback((e) => addTranscript(e.speaker, e.text, e.isFinal), [addTranscript]),
+  });
+
+  // ── Camera/mic init ────────────────────────────────────────────────
+  const initCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      camStream.current = stream;
+      if (camRef.current) { camRef.current.srcObject = stream; camRef.current.play().catch(() => {}); }
+      setCamOn(true);
+    } catch (e) { console.warn("[Camera] Could not access camera:", e); }
+  }, []);
+
+  // ── Session lifecycle ──────────────────────────────────────────────
+  const init = useCallback(async () => {
+    await initCamera();
     try {
       const res = await apiClient.post("/therapy/video-sessions", { therapistId });
       const id = res.data?.data?._id || null;
       setSessionId(id);
       sessionIdRef.current = id;
-      if (id) startSession("video", id); // ← notify global store
-    } catch { /* continue without DB */ }
+      if (id) startSession("video", id);
+    } catch {}
+    setTimeout(() => setPhase("ready"), 1200);
+  }, [therapistId, initCamera, startSession]);
 
-    setTimeout(() => {
-      setPhase("ready");
-    }, 1200);
-  };
-
-  const startActiveSession = async () => {
+  const startActive = useCallback(async () => {
     setPhase("active");
-    await sayTherapist(persona.greeting);
-    setTimeout(startListening, 1500);
-  };
+    timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    // Start recording
+    if (camStream.current) {
+      try {
+        recChunks.current = [];
+        const mr = new MediaRecorder(camStream.current, { mimeType: "video/webm;codecs=vp8,opus" });
+        mr.ondataavailable = e => { if (e.data.size > 0) recChunks.current.push(e.data); };
+        mr.start(1000);
+        recRef.current = mr;
+      } catch {}
+    }
+    // Tavus is the meeting engine — just join and let it handle conversation
+    tavus.initTavusSession(therapistId);
+  }, [therapistId, tavus]);
 
-  const cleanup = () => {
-    camStream.current?.getTracks().forEach(t => t.stop());
-    screenStream.current?.getTracks().forEach(t => t.stop());
-    stopRec();
-    stopVoice();
-    stopListening();
+  const endSession = useCallback(async () => {
+    setPhase("ending");
     clearInterval(timerRef.current);
-    endStoreSession(); // ← clear sidebar active state
-  };
+    if (recRef.current?.state !== "inactive") recRef.current?.stop();
+    camStream.current?.getTracks().forEach(t => t.stop());
+    tavus.endSession();
+    endStoreSession();
 
-  // ── TTS ──────────────────────────────────────────────────────
-  const sayTherapist = async (text: string) => {
-    setTranscript(p => [...p, { speaker: "therapist", text }]);
-    setCaption(text.slice(0, 100) + (text.length > 100 ? "…" : ""));
-    setIsSpeaking(true);
-    setStoreAvatarState("speaking"); // ← sidebar sees "speaking"
-    speak(text);
-    const dur = Math.min(text.length * 55 + 800, 8000);
-    await new Promise(r => setTimeout(r, dur));
-    setIsSpeaking(false);
-    setStoreAvatarState("listening"); // ← sidebar sees "listening"
-    setCaption("");
-    saveEntry("therapist", text);
-  };
+    if (sessionIdRef.current && transcriptRef.current.length >= 2) {
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 45_000);
+        const res = await apiClient.post(
+          `/therapy/video-sessions/${sessionIdRef.current}/end`,
+          { gestureInsights: gestureRef.current },
+          { signal: ctrl.signal }
+        );
+        setReport(res.data?.data);
+      } catch (e: any) { console.warn("[endSession]", e.message); }
+    }
+    setPhase("report");
+  }, [tavus, endStoreSession]);
 
-  const saveEntry = (speaker: string, text: string) => {
-    const id = sessionIdRef.current;
-    if (!id) return;
-    apiClient.post(`/therapy/video-sessions/${id}/transcript`, { speaker, text }).catch(() => {});
-  };
+  useEffect(() => { init(); return () => { clearInterval(timerRef.current); tavus.endSession(); endStoreSession(); }; }, []);
 
-  // ── AI response ───────────────────────────────────────────────
-  const handleUserSpeech = useCallback(async (text: string) => {
-    if (!text.trim() || aiTyping) return;
-    setTranscript(p => [...p, { speaker: "user", text }]);
-    setCaption(`You: ${text}`);
-    setAiTyping(true);
-    saveEntry("user", text);
-
+  // ── Send typed message to Tavus ───────────────────────────────────
+  const sendChat = useCallback(() => {
+    const text = chatInput.trim();
+    if (!text || !tavus.callObject) return;
+    setChatInput("");
+    addTranscript("user", text, true);
     try {
-      const res = await apiClient.post("/chat", {
-        message: text,
-        // Do NOT pass videoSession ID here — /api/chat expects a ChatSession._id.
-        // The video transcript is saved separately via /therapy/video-sessions/:id/transcript.
-        persona: { description: persona.systemPrompt.slice(0, 2000) },
-      });
-      const reply: string = res.data?.response || "Tell me more about that.";
-      await sayTherapist(reply);
-    } catch {
-      await sayTherapist("Thank you for sharing. What else comes up for you?");
-    } finally {
-      setAiTyping(false);
-      // restart listening after AI finishes
-      setTimeout(startListening, 600);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiTyping, persona]);
+      tavus.callObject.sendAppMessage({ message_type: "conversation", event_type: "conversation.echo", properties: { text } });
+    } catch (e) { console.warn("[sendChat]", e); }
+  }, [chatInput, tavus.callObject, addTranscript]);
 
-  // ── STT ──────────────────────────────────────────────────────
-  const handleSTTResult = useCallback((text: string, isFinal: boolean) => {
-    if (isFinal) {
-      setInterimTranscript("");
-      handleUserSpeech(text);
-      stopListening(); // Stop listening so AI can respond
-    } else {
-      setInterimTranscript(text);
-    }
-  }, [handleUserSpeech]);
-
-  const { isListening: listening, startListening, stopListening } = useSpeechRecognition({
-    onResult: handleSTTResult,
-    continuous: true,
-  });
-
-  // Auto-restart if we didn't explicitly stop it and not ai typing
-  useEffect(() => {
-    if (!aiTyping && phase === "active" && micOn && !listening) {
-       startListening();
-    }
-  }, [aiTyping, phase, micOn, listening, startListening]);
-
-  // ── Controls ──────────────────────────────────────────────────
-  const toggleCam = () => {
-    camStream.current?.getVideoTracks().forEach(t => { t.enabled = camOn ? false : true; });
-    setCamOn(v => !v);
-  };
-
-  const toggleMic = () => {
-    camStream.current?.getAudioTracks().forEach(t => { t.enabled = !micOn; });
-    setMicOn(v => !v);
-    if (micOn) stopListening(); else setTimeout(startListening, 300);
-  };
-
-  const toggleScreen = async () => {
-    if (sharing) {
-      screenStream.current?.getTracks().forEach(t => t.stop());
-      screenStream.current = null;
-      setSharing(false);
-      return;
-    }
-    try {
-      const s = await (navigator.mediaDevices as any).getDisplayMedia({ video: true, audio: false });
-      screenStream.current = s;
-      s.getVideoTracks()[0].onended = () => { setSharing(false); screenStream.current = null; };
-      setSharing(true);
-    } catch { }
-  };
-
-  // ── Recording ─────────────────────────────────────────────────
-  const startRec = () => {
-    const stream = camStream.current;
-    if (!stream || recRef.current) return;
-    recChunks.current = [];
-    try {
-      const mr = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8,opus" });
-      mr.ondataavailable = e => { if (e.data.size > 0) recChunks.current.push(e.data); };
-      mr.start(1000);
-      recRef.current = mr;
-      setRecording(true);
-    } catch { }
-  };
-
-  const stopRec = () => {
-    if (!recRef.current) return;
-    recRef.current.stop();
-    recRef.current = null;
-    setRecording(false);
-  };
-
-  // ── Gestures ──────────────────────────────────────────────────
-  const handleGesture = useCallback((result: GestureResult) => {
-    // Only log meaningful intents
-    if (result.intent !== "None") {
-      setGestureInsights(p => {
-        const newInsights = [...p, { meaning: result.intent, gesture: result.label, timestamp: new Date() }];
-        gestureInsightsRef.current = newInsights;
-        return newInsights;
-      });
+  // ── Gesture handler ───────────────────────────────────────────────
+  const handleGesture = useCallback((r: GestureResult) => {
+    if (r.intent !== "None") {
+      setGestureInsights(p => [...p, { meaning: r.intent, gesture: r.label, timestamp: new Date() }]);
     }
   }, []);
 
-  // ── End Session ───────────────────────────────────────────────
-  const endSession = async () => {
-    setPhase("ending");
-    stopListening();
-    stopVoice();
-    stopRec();
-    camStream.current?.getTracks().forEach(t => t.stop());
-    clearInterval(timerRef.current);
+  // ── Mic/cam toggle ────────────────────────────────────────────────
+  const toggleMic = useCallback(() => {
+    camStream.current?.getAudioTracks().forEach(t => { t.enabled = micOn ? false : true; });
+    if (tavus.callObject) { try { tavus.callObject.setLocalAudio(!micOn); } catch {} }
+    setMicOn(v => !v);
+  }, [micOn, tavus.callObject]);
 
-    // Minimum interaction threshold: 10 total messages
-    if (transcriptRef.current.length < 10) {
-      setPhase("report");
-      return;
-    }
+  const toggleCam = useCallback(() => {
+    camStream.current?.getVideoTracks().forEach(t => { t.enabled = camOn ? false : true; });
+    setCamOn(v => !v);
+  }, [camOn]);
 
-    if (sessionIdRef.current) {
-      try {
-        const res = await apiClient.post(`/therapy/video-sessions/${sessionIdRef.current}/end`, {
-           gestureInsights: gestureInsightsRef.current
-        });
-        setReport(res.data?.data);
-      } catch { }
-    }
-    setPhase("report");
-  };
+  // ── Phase screens ─────────────────────────────────────────────────
+  if (phase === "starting") return (
+    <div className="h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 2, repeat: Infinity }} className="text-center space-y-4">
+        <div className={cn("h-24 w-24 mx-auto rounded-[2rem] flex items-center justify-center text-5xl bg-gradient-to-br shadow-2xl", persona.gradient)}>{persona.emoji}</div>
+        <p className="text-sm font-black uppercase tracking-[0.3em] text-white/40">Connecting with {persona.name}…</p>
+      </motion.div>
+    </div>
+  );
 
-  const sendChat = () => {
-    if (!chatInput.trim()) return;
-    handleUserSpeech(chatInput);
-    setChatInput("");
-  };
+  if (phase === "ending") return (
+    <div className="h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <motion.div animate={{ opacity: [0.4,1,0.4] }} transition={{ duration: 1.5, repeat: Infinity }} className="text-center space-y-4">
+        <Brain className="h-10 w-10 text-primary mx-auto" />
+        <p className="text-sm font-black uppercase tracking-widest text-white/40">Generating session report…</p>
+      </motion.div>
+    </div>
+  );
 
-  // ── REPORT ────────────────────────────────────────────────────
-  if (phase === "report") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="max-w-2xl w-full space-y-6">
-          <div className="text-center space-y-3">
-            <div className={cn("h-20 w-20 mx-auto rounded-[1.75rem] flex items-center justify-center text-4xl bg-gradient-to-br shadow-2xl", persona.gradient)}>
-              {persona.emoji}
-            </div>
-            <h1 className="text-3xl font-black">Session Complete</h1>
-            <p className="text-muted-foreground">{fmt(elapsed)} · {transcript.length} exchanges · {persona.name}</p>
-          </div>
-
-          {report?.sessionNotes && (
-            <div className="rounded-2xl border border-primary/10 bg-card/60 p-6 space-y-3">
-              <div className="flex items-center gap-2"><Brain className="h-4 w-4 text-primary" /><h3 className="font-black text-sm">Session Notes</h3></div>
-              <p className="text-sm text-muted-foreground leading-relaxed">{report.sessionNotes}</p>
-            </div>
-          )}
-
-          {report?.keyTopics?.length > 0 && (
-            <div className="rounded-2xl border border-primary/10 bg-card/60 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-3">Key Topics</p>
-              <div className="flex flex-wrap gap-2">
-                {report.keyTopics.map((t: string) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}
-              </div>
-            </div>
-          )}
-
-          {report?.recommendations?.length > 0 && (
-            <div className="rounded-2xl border border-primary/10 bg-card/60 p-5 space-y-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-3">Recommendations</p>
-              {report.recommendations.map((r: string, i: number) => (
-                <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />{r}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {report?.emotionalSummary && (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-              <p className="text-sm text-emerald-400 italic">"{report.emotionalSummary}"</p>
-            </div>
-          )}
-
-          {!report && transcript.length < 10 && (
-            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 text-center space-y-2">
-              <p className="text-sm font-black text-rose-400">Session Too Short</p>
-              <p className="text-xs text-muted-foreground">
-                We need a bit more interaction (at least 10 exchanges) to generate a meaningful clinical report. 
-                Your session lasted {fmt(elapsed)} with {transcript.length} messages.
-              </p>
-            </div>
-          )}
-
-          {!report && transcript.length >= 10 && (
-            <div className="rounded-2xl border border-primary/10 bg-card/60 p-6 text-center text-muted-foreground text-sm">
-              {transcript.length} exchanges · {fmt(elapsed)} total
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <Button className="flex-1 rounded-2xl" onClick={() => router.push("/dashboard/sessions")}>
-              <FileText className="h-4 w-4 mr-2" />View Sessions
-            </Button>
-            <Button variant="outline" className="flex-1 rounded-2xl" onClick={() => router.push("/dashboard/avatar")}>
-              New Session
-            </Button>
-          </div>
-        </motion.div>
+  if (phase === "ready") return (
+    <div className="h-screen bg-[#0a0a0f] flex flex-col items-center justify-center gap-8">
+      <div className="text-center space-y-3">
+        <div className={cn("h-24 w-24 mx-auto rounded-[2rem] flex items-center justify-center text-5xl bg-gradient-to-br shadow-2xl", persona.gradient)}>{persona.emoji}</div>
+        <p className="text-xl font-black text-white">{persona.name} is ready</p>
+        <p className="text-sm text-white/50">{persona.title}</p>
       </div>
-    );
-  }
-
-  // ── STARTING ──────────────────────────────────────────────────
-  if (phase === "starting") {
-    return (
-      <div className="h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }}
-          className="text-center space-y-4">
-          <div className={cn("h-24 w-24 mx-auto rounded-[2rem] flex items-center justify-center text-5xl bg-gradient-to-br shadow-2xl", persona.gradient)}>
-            {persona.emoji}
-          </div>
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-white/40">Connecting with {persona.name}…</p>
-        </motion.div>
+      <div className="h-32 w-48 rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl relative">
+        <video ref={camRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
+        <span className="absolute bottom-2 left-2 text-[10px] font-black text-white/50 uppercase tracking-widest bg-black/60 px-2 py-0.5 rounded-full">Camera</span>
       </div>
-    );
-  }
+      <button onClick={startActive} className="h-12 px-8 rounded-full bg-primary text-primary-foreground text-sm font-black tracking-wide shadow-lg hover:opacity-90 transition flex items-center gap-2">
+        <Video className="h-4 w-4" /> Join Session
+      </button>
+    </div>
+  );
 
-  // ── ENDING ────────────────────────────────────────────────────
-  if (phase === "ending") {
-    return (
-      <div className="h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
-          className="text-center space-y-4">
-          <Brain className="h-10 w-10 text-primary mx-auto" />
-          <p className="text-sm font-black uppercase tracking-widest text-white/40">Generating your session report…</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // ── READY ─────────────────────────────────────────────────────
-  if (phase === "ready") {
-    return (
-      <div className="h-screen bg-[#0a0a0f] flex flex-col items-center justify-center space-y-8">
-        <div className="text-center space-y-4">
-          <div className={cn("h-24 w-24 mx-auto rounded-[2rem] flex items-center justify-center text-5xl bg-gradient-to-br shadow-2xl", persona.gradient)}>
-            {persona.emoji}
-          </div>
-          <p className="text-xl font-black text-white">{persona.name} is ready</p>
-          <p className="text-sm text-white/50">{persona.title}</p>
+  if (phase === "report") return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl w-full space-y-6">
+        <div className="text-center space-y-3">
+          <div className={cn("h-20 w-20 mx-auto rounded-[1.75rem] flex items-center justify-center text-4xl bg-gradient-to-br shadow-2xl", persona.gradient)}>{persona.emoji}</div>
+          <h1 className="text-3xl font-black">Session Complete</h1>
+          <p className="text-muted-foreground">{fmt(elapsed)} · {transcript.length} exchanges · {persona.name}</p>
         </div>
-        <div className="flex gap-4">
-          <div className="h-32 w-48 rounded-2xl overflow-hidden border border-white/10 bg-black relative shadow-2xl">
-            <video ref={camRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
-            <span className="absolute bottom-2 left-2 text-[10px] font-black text-white/50 uppercase tracking-widest bg-black/50 px-2 py-0.5 rounded-full">Camera Preview</span>
+        {report?.sessionNotes && (
+          <div className="rounded-2xl border border-primary/10 bg-card/60 p-6 space-y-3">
+            <div className="flex items-center gap-2"><Brain className="h-4 w-4 text-primary" /><h3 className="font-black text-sm">Session Notes</h3></div>
+            <p className="text-sm text-muted-foreground leading-relaxed">{report.sessionNotes}</p>
           </div>
+        )}
+        {report?.keyTopics?.length > 0 && (
+          <div className="rounded-2xl border border-primary/10 bg-card/60 p-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-3">Key Topics</p>
+            <div className="flex flex-wrap gap-2">{report.keyTopics.map((t: string) => <Badge key={t} variant="outline" className="text-xs">{t}</Badge>)}</div>
+          </div>
+        )}
+        {report?.recommendations?.length > 0 && (
+          <div className="rounded-2xl border border-primary/10 bg-card/60 p-5 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-3">Recommendations</p>
+            {report.recommendations.map((r: string, i: number) => (
+              <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground"><CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />{r}</div>
+            ))}
+          </div>
+        )}
+        {report?.emotionalSummary && (
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="text-sm text-emerald-400 italic">&ldquo;{report.emotionalSummary}&rdquo;</p>
+          </div>
+        )}
+        {!report && (
+          <div className="rounded-2xl border border-primary/10 bg-card/60 p-6 text-center text-muted-foreground text-sm">
+            {transcript.length < 2 ? "Session was too short to generate a report." : `${transcript.length} exchanges · ${fmt(elapsed)}`}
+          </div>
+        )}
+        <div className="flex gap-3">
+          <button onClick={() => router.push("/dashboard/sessions")} className="flex-1 h-11 rounded-2xl bg-primary text-primary-foreground text-sm font-black flex items-center justify-center gap-2 hover:opacity-90 transition">
+            <FileText className="h-4 w-4" /> View Sessions
+          </button>
+          <button onClick={() => router.push("/dashboard/avatar")} className="flex-1 h-11 rounded-2xl border border-primary/20 text-sm font-black hover:bg-primary/5 transition">
+            New Session
+          </button>
         </div>
-        <Button size="lg" className="rounded-full px-8 h-12 text-sm font-black tracking-wide" onClick={startActiveSession}>
-          Join Session <Video className="h-4 w-4 ml-2" />
-        </Button>
-      </div>
-    );
-  }
+      </motion.div>
+    </div>
+  );
 
-  // ── MEETING UI ────────────────────────────────────────────────
+  // ── ACTIVE MEETING UI ─────────────────────────────────────────────
   return (
-    <div className="h-screen bg-[#0a0a0f] text-white flex flex-col overflow-hidden">
-      {/* Top bar */}
-      <div className="shrink-0 flex items-center justify-between px-5 py-3 bg-black/50 backdrop-blur border-b border-white/5">
+    <div className="h-screen bg-[#0a0a0f] text-white flex flex-col overflow-hidden relative">
+      {/* Ambient glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
+        <div className={cn("absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[120px] bg-gradient-to-br", persona.gradient)} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[100px] bg-primary/20" />
+      </div>
+
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-6 py-3 z-50 bg-gradient-to-b from-black/60 to-transparent">
         <div className="flex items-center gap-3">
-          <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br", persona.gradient)}>
-            {persona.emoji}
-          </div>
+          <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br shadow", persona.gradient)}>{persona.emoji}</div>
           <div>
-            <p className="text-sm font-black">{persona.name}</p>
-            <p className="text-[9px] uppercase tracking-widest text-white/30">{persona.tagline}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black">{persona.name}</span>
+              <Badge variant="outline" className="bg-primary/10 border-primary/20 text-[9px] font-black uppercase h-4 py-0">LIVE</Badge>
+              {tavus.status === "connected" && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+            </div>
+            <p className="text-[10px] text-white/40 uppercase tracking-widest">{sessionId?.slice(-8) || "connecting…"}</p>
           </div>
         </div>
-
-        <div className="flex items-center gap-3">
-          {recording && (
-            <div className="flex items-center gap-1.5 bg-red-500/20 border border-red-500/30 rounded-full px-2.5 py-1">
-              <Circle className="h-2 w-2 fill-red-500 text-red-500 animate-pulse" />
-              <span className="text-[9px] font-black text-red-400">REC</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1.5 bg-white/5 rounded-full px-3 py-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[10px] font-black text-white/50">{fmt(elapsed)}</span>
-          </div>
-          <button onClick={() => setShowTx(v => !v)}
-            className={cn("h-8 px-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
-              showTx ? "bg-primary/20 text-primary" : "bg-white/5 text-white/40")}>
-            <MessageSquare className="h-3.5 w-3.5 inline mr-1" />Transcript
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-mono font-black tabular-nums text-white/60">{fmt(elapsed)}</span>
+          <button onClick={() => setShowSidebar(v => !v)} className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition">
+            <MessageSquare className="h-4 w-4 text-white/60" />
           </button>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Main video area */}
-        <div className="flex-1 relative bg-[#0d0d14] overflow-hidden">
-          {/* Therapist avatar */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="relative">
-              <motion.div
-                animate={{ scale: isSpeaking ? [1, 1.05, 1] : [1, 1.015, 1] }}
-                transition={{ duration: isSpeaking ? 0.55 : 4, repeat: Infinity }}
-                className={cn("h-52 w-52 rounded-[3rem] flex items-center justify-center text-8xl shadow-2xl bg-gradient-to-br border border-white/10", persona.gradient)}
-              >
-                {persona.emoji}
-              </motion.div>
-              {isSpeaking && [1, 2, 3].map(i => (
-                <motion.div key={i} className="absolute inset-0 rounded-[3rem] border border-white/15"
-                  animate={{ scale: [1, 1 + i * 0.13], opacity: [0.6, 0] }}
-                  transition={{ duration: 1.4, delay: i * 0.22, repeat: Infinity }} />
-              ))}
-              {aiTyping && (
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex gap-2">
-                  {[0,1,2].map(i => (
-                    <motion.div key={i} className="h-2.5 w-2.5 rounded-full bg-primary/50"
-                      animate={{ y: [0,-6,0] }} transition={{ duration: 0.7, delay: i*0.15, repeat: Infinity }} />
-                  ))}
-                </div>
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden relative px-4 pb-24 gap-4">
+        {/* Tavus video — full height, fills available space */}
+        <div className="flex-1 relative min-h-0">
+          <div className="absolute inset-0 rounded-3xl overflow-hidden bg-[#0d0d14] border border-white/5 shadow-2xl">
+            {/* ALWAYS mounted — never conditional */}
+            <video ref={tavus.videoRef} autoPlay playsInline muted={false} className="w-full h-full object-cover" />
+            <audio ref={tavus.audioRef} autoPlay />
+
+            {/* Loading overlay — fades out when connected */}
+            <AnimatePresence>
+              {tavus.status !== "connected" && (
+                <motion.div key="loading" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.5 } }}
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm z-10">
+                  {tavus.status === "error" ? (
+                    <>
+                      <div className="h-14 w-14 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-4 text-2xl">⚠️</div>
+                      <p className="text-red-400 text-sm font-semibold">Connection Failed</p>
+                      <p className="text-white/30 text-xs mt-1 text-center px-8">{tavus.errorMsg}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className={cn("h-20 w-20 rounded-3xl flex items-center justify-center text-5xl mb-5 bg-gradient-to-br border border-white/10 shadow-2xl", persona.gradient)}>{persona.emoji}</div>
+                      <Loader2 className="h-5 w-5 text-white/30 animate-spin mb-3" />
+                      <p className="text-white/50 text-sm font-semibold">{persona.name}</p>
+                      <p className="text-white/25 text-xs mt-1">{tavus.status === "initializing" ? "Joining session…" : "Starting…"}</p>
+                    </>
+                  )}
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
           </div>
 
-          {/* Live caption */}
-          <AnimatePresence>
-            {(caption || interimTranscript) && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="absolute bottom-24 inset-x-4 flex justify-center z-10">
-                <div className="bg-black/75 backdrop-blur rounded-2xl px-5 py-3 max-w-lg text-center text-sm text-white/90 font-medium">
-                  {interimTranscript ? `You: ${interimTranscript}...` : caption}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Listening indicator */}
-          <AnimatePresence>
-            {listening && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-primary/20 border border-primary/40 rounded-full px-4 py-1.5">
-                <Mic className="h-3.5 w-3.5 text-primary animate-pulse" />
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest">Listening…</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* User PiP */}
-          <div className="absolute bottom-4 right-4 h-32 w-48 rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl">
-            <video ref={camRef} autoPlay playsInline muted
-              className={cn("w-full h-full object-cover -scale-x-100", !camOn && "hidden")} />
-            {!camOn && (
-              <div className="w-full h-full flex items-center justify-center bg-[#1a1a24]">
-                <VideoOff className="h-6 w-6 text-white/20" />
-              </div>
-            )}
-            <span className="absolute bottom-1.5 left-2 text-[8px] font-black text-white/30 uppercase">You</span>
+          {/* Live captions — always rendered over Tavus video */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl px-4 z-20 flex flex-col gap-1.5 pointer-events-none">
+            <AnimatePresence>
+              {interimCaption && (
+                <motion.div key="interim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="bg-black/50 backdrop-blur-sm rounded-xl px-4 py-1.5 border border-white/5">
+                  <p className="text-center text-white/50 text-sm italic">{interimCaption}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence mode="wait">
+              {caption && (
+                <motion.div key={caption} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  className="bg-black/75 backdrop-blur-md rounded-2xl px-5 py-2.5 border border-white/10 shadow-xl">
+                  <p className="text-center text-white/95 text-sm font-semibold">{caption}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* Transcript panel */}
+        {/* Sidebar — local cam PiP + transcript */}
         <AnimatePresence>
-          {showTx && (
-            <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 280, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
-              className="shrink-0 border-l border-white/5 bg-black/60 backdrop-blur flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-white/5 shrink-0">
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Live Transcript</p>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-4">
-                {transcript.length === 0 && (
-                  <p className="text-[10px] text-white/20 text-center mt-6">Conversation will appear here…</p>
-                )}
-                {transcript.map((e, i) => (
-                  <div key={i} className={cn("text-xs leading-relaxed", e.speaker === "therapist" ? "text-white/70" : "text-primary/90")}>
-                    <span className="block text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">
-                      {e.speaker === "therapist" ? persona.name : "You"}
-                    </span>
-                    {e.text}
-                  </div>
-                ))}
-                <div ref={txEndRef} />
-              </div>
-              
-              {/* Text Chat Input */}
-              <div className="p-3 border-t border-white/5 shrink-0 flex gap-2">
-                <input 
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && sendChat()}
-                  placeholder="Type a message..."
-                  disabled={aiTyping || listening}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder:text-white/30 outline-none focus:border-primary/50 disabled:opacity-50"
+          {showSidebar && (
+            <motion.div initial={{ x: 280, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 280, opacity: 0 }}
+              className="w-72 flex flex-col gap-3 py-1 z-40 shrink-0">
+              {/* Local camera PiP with gesture overlay */}
+              <div className="h-44 rounded-2xl overflow-hidden border border-white/10 bg-black shadow-xl relative group">
+                <video ref={camRef} autoPlay playsInline muted className={cn("w-full h-full object-cover -scale-x-100", !camOn && "hidden")} />
+                {!camOn && <div className="w-full h-full flex items-center justify-center bg-zinc-900"><VideoOff className="h-7 w-7 text-white/20" /></div>}
+
+                {/* Gesture overlay — visually on top of camera, independent of Tavus */}
+                <GestureRecognition
+                  onGestureDetected={handleGesture}
+                  stream={camStream.current}
+                  autoStart={phase === "active"}
+                  asOverlay
                 />
-                <button 
-                  onClick={sendChat} 
-                  disabled={!chatInput.trim() || aiTyping || listening}
-                  className="bg-primary disabled:bg-primary/50 text-white rounded-xl p-2 flex items-center justify-center transition-all"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                </button>
+
+                <div className="absolute top-2 right-2 flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                  <div className="h-1 w-1 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[8px] font-black text-emerald-400 uppercase tracking-wide">AI Vision</span>
+                </div>
+              </div>
+
+              {/* Transcript drawer */}
+              <div className="flex-1 flex flex-col bg-white/5 backdrop-blur-sm rounded-2xl border border-white/5 overflow-hidden min-h-0">
+                <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between shrink-0">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Session Log</span>
+                  <div className={cn("h-1.5 w-1.5 rounded-full", tavus.status === "connected" ? "bg-emerald-500 animate-pulse" : "bg-white/10")} />
+                </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-hide">
+                  {transcript.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 gap-2">
+                      <MessageSquare className="h-7 w-7" />
+                      <p className="text-[9px] uppercase font-black tracking-widest text-center">Waiting for conversation</p>
+                    </div>
+                  )}
+                  {transcript.map((e, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, x: e.speaker === "user" ? 10 : -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-0.5">
+                      <span className={cn("text-[9px] font-black uppercase tracking-widest", e.speaker === "therapist" ? "text-primary/60" : "text-white/30")}>
+                        {e.speaker === "therapist" ? persona.name : "You"}
+                      </span>
+                      <p className={cn("text-xs leading-relaxed", e.speaker === "therapist" ? "text-white/80" : "text-white/60")}>{e.text}</p>
+                    </motion.div>
+                  ))}
+                  <div ref={txEndRef} />
+                </div>
+                {/* Chat input — sends text to Tavus */}
+                <div className="p-2.5 bg-black/20 shrink-0">
+                  <div className="relative">
+                    <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && sendChat()}
+                      placeholder="Type a message…"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-3 pr-8 text-xs text-white placeholder:text-white/25 focus:outline-none focus:border-primary/40 transition" />
+                    <button onClick={sendChat} className="absolute right-2 top-1/2 -translate-y-1/2 text-primary/40 hover:text-primary transition">
+                      <Send className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Controls */}
-      <div className="shrink-0 bg-black/60 backdrop-blur border-t border-white/5 px-6 py-4">
-        <div className="flex items-center justify-center gap-3">
-          <button onClick={toggleMic}
-            className={cn("h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
-              micOn ? "bg-white/10 hover:bg-white/20" : "bg-destructive/80 hover:bg-destructive")}>
+      {/* Controls dock */}
+      <div className="fixed bottom-0 inset-x-0 pb-6 flex justify-center pointer-events-none z-[100]">
+        <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+          className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-2.5 flex items-center gap-2 pointer-events-auto shadow-2xl">
+          <button onClick={toggleMic} title="Toggle Mic" className={cn(BTN, micOn ? BTN_ON : BTN_OFF)}>
             {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
           </button>
-
-          <button onClick={toggleCam}
-            className={cn("h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
-              camOn ? "bg-white/10 hover:bg-white/20" : "bg-destructive/80 hover:bg-destructive")}>
+          <button onClick={toggleCam} title="Toggle Camera" className={cn(BTN, camOn ? BTN_ON : BTN_OFF)}>
             {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
           </button>
-
-          <button onClick={toggleScreen}
-            className={cn("h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
-              sharing ? "bg-primary/70" : "bg-white/10 hover:bg-white/20")}>
-            <MonitorUp className="h-5 w-5" />
+          <button onClick={() => setShowSidebar(v => !v)} title="Toggle Sidebar" className={cn(BTN, showSidebar ? BTN_ON : "bg-white/5 text-white/40 hover:bg-white/10")}>
+            <MessageSquare className="h-5 w-5" />
           </button>
-
-          {/* Push-to-talk */}
-          <motion.button whileTap={{ scale: 0.93 }} onClick={startListening}
-            disabled={listening || aiTyping}
-            className={cn("h-14 w-14 rounded-2xl flex items-center justify-center transition-all shadow-xl",
-              listening ? "bg-primary shadow-primary/40 animate-pulse" : "bg-primary/80 hover:bg-primary shadow-primary/20",
-              aiTyping && "opacity-40 cursor-not-allowed")}>
-            <Mic className="h-6 w-6" />
-          </motion.button>
-
-          <button onClick={recording ? stopRec : startRec}
-            className={cn("h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
-              recording ? "bg-red-600 hover:bg-red-700" : "bg-white/10 hover:bg-white/20")}>
-            <Circle className={cn("h-5 w-5", recording ? "fill-white" : "")} />
+          <div className="w-px h-8 bg-white/10 mx-1" />
+          <button onClick={endSession} className="h-12 px-6 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition text-xs font-black uppercase tracking-wider flex items-center gap-2">
+            <Phone className="h-4 w-4 rotate-[135deg]" /> End
           </button>
-
-          <button onClick={endSession}
-            className="h-12 w-12 rounded-2xl flex items-center justify-center bg-destructive/80 hover:bg-destructive transition-all">
-            <Phone className="h-5 w-5 rotate-[135deg]" />
-          </button>
-        </div>
-        <p className="text-center text-[9px] font-black uppercase tracking-widest text-white/20 mt-3">
-          {listening ? "Listening — speak freely" : aiTyping ? `${persona.name} is responding…` : "Tap mic to speak · Auto-listens after each response"}
-        </p>
+        </motion.div>
       </div>
-
-      <GestureRecognition 
-        stream={camStream.current} 
-        onGestureDetected={handleGesture} 
-        autoStart={camOn}
-        hiddenUI={true} 
-      />
     </div>
   );
 }
