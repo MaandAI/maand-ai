@@ -17,15 +17,12 @@ import {
   FileText,
   History,
   ShieldAlert,
-  Sparkles,
-  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { useUserStore } from "@/lib/store/user-store";
-import { useTherapistStore } from "@/lib/store/therapist-store";
 import { getPersona } from "@/lib/therapist-personas";
 import { EmergencyCalm } from "../therapy/emergency-calm";
 
@@ -41,10 +38,19 @@ const groups = [
   {
     title: "Therapeutic",
     items: [
-      { name: "AI Therapy Chat", href: "/dashboard/therapy/chat", icon: MessageSquare },
+      {
+        name: "AI Therapy Chat",
+        href: "/dashboard/therapy/chat",
+        icon: MessageSquare,
+      },
       { name: "Video Session", href: "/dashboard/avatar", icon: Bot },
       { name: "Chat History", href: "/dashboard/sessions", icon: History },
-      { name: "Immersive", href: "/dashboard/immersive", icon: Glasses, locked: true },
+      {
+        name: "Immersive",
+        href: "/dashboard/immersive",
+        icon: Glasses,
+        locked: true,
+      },
     ],
   },
   {
@@ -56,7 +62,6 @@ const groups = [
     ],
   },
 ];
-
 
 function SidebarContent({
   onNavigate,
@@ -161,7 +166,6 @@ function SidebarContent({
         ))}
       </nav>
 
-
       <div className="p-4 pt-0">
         <div className="rounded-[2rem] bg-card border border-primary/10 p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
@@ -201,7 +205,7 @@ export function DashboardSidebar() {
       {/* Emergency Calm Portal */}
       <EmergencyCalm isOpen={isCalmOpen} onClose={() => setIsCalmOpen(false)} />
 
-      {/* Mobile Sidebar */}
+      {/* Mobile / tablet sheet sidebar — visible on < lg */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="p-0 w-72 border-r-0">
           <div className="h-full bg-background/95 backdrop-blur-xl">
@@ -216,8 +220,8 @@ export function DashboardSidebar() {
         </SheetContent>
       </Sheet>
 
-      {/* Mobile trigger — only visible on small screens */}
-      <div className="md:hidden fixed top-3 left-4 z-50">
+      {/* Mobile / tablet trigger button — hidden on lg+ where the inline sidebar takes over */}
+      <div className="lg:hidden fixed top-3 left-4 z-50">
         <Button
           variant="outline"
           size="icon"
@@ -228,8 +232,8 @@ export function DashboardSidebar() {
         </Button>
       </div>
 
-      {/* Desktop: fill the container provided by layout.tsx */}
-      <div className="hidden md:flex flex-col h-full bg-card/50 backdrop-blur-sm">
+      {/* Desktop inline sidebar — only shown on lg+ */}
+      <div className="hidden lg:flex flex-col h-full bg-card/50 backdrop-blur-sm">
         <SidebarContent onOpenCalm={() => setIsCalmOpen(true)} />
       </div>
     </>

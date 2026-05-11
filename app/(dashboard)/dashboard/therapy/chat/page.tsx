@@ -261,8 +261,15 @@ function TherapyChatInner() {
   const [showGesture, setShowGesture] = useState(false);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  // Left sidebar: open by default on lg+, closed on smaller. Right sidebar: always starts closed.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  // Open left sidebar on large screens after mount (avoids SSR mismatch)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, []);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const isSpeakingRef = useRef(false);
@@ -326,6 +333,30 @@ function TherapyChatInner() {
     [sessionId, persona.greeting, router],
   );
 
+  // ── Called by ChatSidebar after a session is deleted ──
+  // Redirects to the clean chat URL so no stale sessionId lingers in the URL
+  const handleSessionDeleted = useCallback(
+    (deletedId: string) => {
+      fetchSessions();
+      if (deletedId === sessionId) {
+        // Clear local state and navigate to the base chat page (no sessionId)
+        setSessionId(null);
+        setMessages([
+          {
+            id: "greeting",
+            content: persona.greeting,
+            sender: "ai",
+            timestamp: new Date(),
+          },
+        ]);
+        setSessionStatus("active");
+        setActiveSessionId(null);
+        router.replace("/dashboard/therapy/chat", { scroll: false });
+      }
+    },
+    [sessionId, persona.greeting, fetchSessions, router, setActiveSessionId],
+  );
+
   useEffect(() => {
     const t = setInterval(
       () =>
@@ -375,11 +406,14 @@ function TherapyChatInner() {
     }
   };
 
+  // ── Init: load existing session OR just show greeting — never auto-create ──
   useEffect(() => {
     const init = async () => {
       if (urlSessionId) {
+        // A specific session was requested — load its messages
         setSessionId(urlSessionId);
         setActiveSessionId(urlSessionId);
+        setLoadingMessages(true);
         try {
           const res = await apiClient.get(
             `/chat/messages?sessionId=${urlSessionId}`,
@@ -397,37 +431,26 @@ function TherapyChatInner() {
           }
         } catch (e) {
           console.error(e);
+        } finally {
+          setLoadingMessages(false);
         }
       }
-      const greeting: Message = {
-        id: "greeting",
-        content: persona.greeting,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages([greeting]);
-      if (!urlSessionId) {
-        apiClient
-          .post("/chat/sessions", {
-            title: `Session with ${persona.name}`,
-            persona: { description: persona.systemPrompt },
-          })
-          .then((res) => {
-            const id = res.data?.data?.id || res.data?.data?._id || null;
-            setSessionId(id);
-            setActiveSessionId(id);
-            if (id) {
-              startSession("chat", id);
-              const url = new URL(window.location.href);
-              url.searchParams.set("sessionId", id);
-              window.history.replaceState({}, "", url.toString());
-            }
-          })
-          .catch(() => {});
-      }
-      if (voiceEnabled) setTimeout(() => speak(persona.greeting), 800);
+
+      // No sessionId in URL — show greeting only, DO NOT create a session yet.
+      // The session will be created lazily on the first message send.
+      // Do NOT auto-speak — user hasn't started a session yet.
+      setMessages([
+        {
+          id: "greeting",
+          content: persona.greeting,
+          sender: "ai",
+          timestamp: new Date(),
+        },
+      ]);
     };
+
     init();
+
     return () => {
       stopSpeaking();
       endStoreSession();
@@ -459,7 +482,7 @@ function TherapyChatInner() {
           p ? p + " I have something to add..." : "I have something to add...",
         );
     },
-    [stop],
+    [stopSpeaking],
   );
 
   const sendMessage = async () => {
@@ -472,6 +495,7 @@ function TherapyChatInner() {
     setInput("");
     if (CRISIS_KEYWORDS.some((k) => text.toLowerCase().includes(k)))
       setShowCrisis(true);
+
     const userMsg: Message = {
       id: Date.now().toString(),
       content: text,
@@ -480,16 +504,47 @@ function TherapyChatInner() {
     };
     setMessages((p) => [...p, userMsg]);
     setIsTyping(true);
+
+    // ── Lazy session creation: only create a session on the very first message ──
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      try {
+        const sessionRes = await apiClient.post("/chat/sessions", {
+          title: `Session with ${persona.name}`,
+          persona: { description: persona.systemPrompt },
+        });
+        const newId =
+          sessionRes.data?.data?.id || sessionRes.data?.data?._id || null;
+        if (newId) {
+          activeSessionId = newId;
+          setSessionId(newId);
+          setActiveSessionId(newId);
+          startSession("chat", newId);
+          // Update the URL so the session is bookmarkable without a page reload
+          router.replace(`/dashboard/therapy/chat?sessionId=${newId}`, {
+            scroll: false,
+          });
+          // Refresh sidebar so the new session appears immediately
+          fetchSessions();
+        }
+      } catch (err) {
+        console.error("Failed to create session", err);
+      }
+    }
+
     try {
       const res = await apiClient.post("/chat", {
         message: text,
-        sessionId,
+        sessionId: activeSessionId,
         persona: { description: persona.systemPrompt },
       });
       const reply: string =
         res.data?.response || "I hear you. Let's sit with that for a moment.";
       const newSid: string | undefined = res.data?.sessionId;
-      if (newSid && !sessionId) setSessionId(newSid);
+      if (newSid && !activeSessionId) {
+        setSessionId(newSid);
+        setActiveSessionId(newSid);
+      }
       if (res.data?.isCrisis) setShowCrisis(true);
       setMessages((p) => [
         ...p,
@@ -527,16 +582,49 @@ function TherapyChatInner() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4.5rem)] overflow-hidden">
-      {sidebarOpen && (
+    <div className="flex h-[calc(100vh-4.5rem)] overflow-hidden relative">
+      {/* ── LEFT SIDEBAR ──
+          On lg+: inline, pushes content.
+          On < lg: fixed overlay with backdrop, slides in from left. */}
+
+      {/* Backdrop for mobile/tablet left sidebar */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            key="left-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Left sidebar — always mounted, translated off-screen when closed on small screens */}
+      <div
+        className={cn(
+          // Mobile/tablet: fixed overlay
+          "fixed top-[4.5rem] bottom-0 left-0 z-40 w-56 transition-transform duration-300 ease-in-out",
+          // Large screens: relative inline (not fixed), always in flow
+          "lg:static lg:z-auto lg:translate-x-0 lg:transition-none",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:hidden",
+        )}
+      >
         <ChatSidebar
           sessions={sessions}
           currentSessionId={sessionId}
-          onSelectSession={loadSession}
+          onSelectSession={(id) => {
+            loadSession(id);
+            // Auto-close drawer on small screens after selecting
+            if (window.innerWidth < 1024) setSidebarOpen(false);
+          }}
           onRefresh={fetchSessions}
-          className="hidden md:flex w-56"
+          onSessionDeleted={handleSessionDeleted}
+          className="flex h-full w-full"
         />
-      )}
+      </div>
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
@@ -664,18 +752,6 @@ function TherapyChatInner() {
               </div>
               <Button
                 variant="ghost"
-                size="icon"
-                className={cn(
-                  "rounded-full h-8 w-8",
-                  rightSidebarOpen && "bg-primary/10",
-                )}
-                onClick={() => setRightSidebarOpen((v) => !v)}
-                title="Toggle Avatar & Goals"
-              >
-                <PanelLeftClose className="h-4 w-4 rotate-180" />
-              </Button>
-              <Button
-                variant="ghost"
                 size="sm"
                 className="rounded-full text-[10px] font-black uppercase tracking-widest h-8"
                 onClick={() => setShowGesture((g) => !g)}
@@ -716,7 +792,7 @@ function TherapyChatInner() {
                         `/chat/${sessionId}/complete`,
                       );
                       setSessionStatus("completed");
-                      stop();
+                      stopSpeaking();
                       fetchSessions();
                       const reportId = res.data?.reportId;
                       toast({
@@ -754,6 +830,19 @@ function TherapyChatInner() {
                   )}
                 </Button>
               )}
+              {/* Right sidebar toggle — always at far right */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "rounded-full h-8 w-8",
+                  rightSidebarOpen && "bg-primary/10",
+                )}
+                onClick={() => setRightSidebarOpen((v) => !v)}
+                title="Toggle Avatar & Goals"
+              >
+                <PanelLeftClose className="h-4 w-4 rotate-180" />
+              </Button>
             </div>
           </div>
 
@@ -879,12 +968,7 @@ function TherapyChatInner() {
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
+                  onKeyDown={handleKeyDown}
                   placeholder={
                     isRecording
                       ? "Listening..."
@@ -953,13 +1037,40 @@ function TherapyChatInner() {
           </div>
         </div>
 
-        {/* RESTORED: Dynamic Avatar Display on the right */}
-        {rightSidebarOpen && (
-          <div className="hidden lg:flex w-80 xl:w-96 border-l border-primary/10 bg-card/5 flex-col items-center justify-start p-6 relative overflow-hidden">
+        {/* ── RIGHT SIDEBAR ──
+            On lg+: inline, pushes content.
+            On < lg: fixed overlay with backdrop, slides in from right. */}
+
+        {/* Backdrop for mobile/tablet right sidebar */}
+        <AnimatePresence>
+          {rightSidebarOpen && (
+            <motion.div
+              key="right-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm lg:hidden"
+              onClick={() => setRightSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Right sidebar panel */}
+        <div
+          className={cn(
+            // Mobile/tablet: fixed overlay from right
+            "fixed top-[4.5rem] bottom-0 right-0 z-40 w-80 transition-transform duration-300 ease-in-out",
+            // Large screens: relative inline
+            "lg:static lg:z-auto lg:translate-x-0 lg:transition-none lg:w-80 xl:w-96",
+            rightSidebarOpen ? "translate-x-0" : "translate-x-full lg:hidden",
+          )}
+        >
+          <div className="flex flex-col items-center justify-start h-full border-l border-primary/10 bg-card/90 lg:bg-card/5 relative overflow-hidden">
             {/* Ambient background effect */}
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
-            <div className="flex flex-col items-center justify-center w-full gap-6 relative z-10 py-6 border-b border-primary/10">
+            <div className="flex flex-col items-center justify-center w-full gap-6 relative z-10 py-6 px-6 border-b border-primary/10">
               <AvatarDisplay
                 state={avatarState}
                 enabled={true}
@@ -990,11 +1101,11 @@ function TherapyChatInner() {
               </div>
             </div>
 
-            <div className="w-full flex-1 overflow-y-auto custom-scrollbar pt-6 relative z-10">
+            <div className="w-full flex-1 overflow-y-auto custom-scrollbar pt-6 px-6 relative z-10">
               <GoalSetting />
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

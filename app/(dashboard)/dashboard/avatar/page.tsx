@@ -261,15 +261,13 @@ export default function TherapyAvatarPage() {
   const router = useRouter();
   const { selectedTherapistId, selectTherapist } = useTherapistStore();
 
-  const [phase, setPhase] = useState<"quiz" | "select">("quiz");
-  // Initialise selectedId from the global store so returning users see their last choice
-  const [selectedId, setSelectedId] = useState<string | null>(selectedTherapistId || null);
-  const [recommendedId, setRecommendedId] = useState<string | null>(null);
+  // Forcing AVA for now as requested
+  const [phase, setPhase] = useState<"quiz" | "select">("select");
+  const [selectedId, setSelectedId] = useState<string | null>("ava");
+  const [recommendedId, setRecommendedId] = useState<string | null>("ava");
 
   const handleQuizResult = (id: string) => {
-    setRecommendedId(id);
-    setSelectedId(id);
-    setPhase("select");
+    // Disabled
   };
 
   /** Pick a therapist locally + write to global store instantly */
@@ -292,11 +290,10 @@ export default function TherapyAvatarPage() {
             AI Therapy Companion
           </Badge>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight">
-            Choose Your <span className="text-primary">Therapist</span>
+            Meet <span className="text-primary">Ava</span>
           </h1>
           <p className="text-muted-foreground font-medium leading-relaxed">
-            Every AI therapist has a unique personality, voice, and therapeutic approach.
-            Take the quiz to find your best match.
+            Ava is your primary AI therapy companion, specialized in anxiety, stress management, and mindful awareness.
           </p>
         </div>
       </div>
@@ -315,30 +312,26 @@ export default function TherapyAvatarPage() {
           </motion.div>
         ) : (
           <motion.div key="select" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
-            {recommendedId && (
-              <div className="text-center space-y-2">
-                <div className="flex items-center justify-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-black uppercase tracking-widest text-primary">Your Best Match</p>
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  Based on your answers, we recommend{" "}
-                  <strong>{THERAPIST_PERSONAS[recommendedId]?.name}</strong>. You can always switch.
-                </p>
+            <div className="text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                <p className="text-sm font-black uppercase tracking-widest text-primary">Active Therapist</p>
               </div>
-            )}
+              <p className="text-muted-foreground text-sm">
+                You are currently paired with <strong>Ava</strong>.
+              </p>
+            </div>
 
-            {/* Therapist cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {THERAPISTS.map((t) => (
+            {/* Only show Ava */}
+            <div className="flex justify-center">
+              <div className="max-w-sm w-full">
                 <TherapistCard
-                  key={t.id}
-                  therapist={t}
-                  isSelected={selectedId === t.id}
-                  isRecommended={recommendedId === t.id}
-                  onSelect={() => handleSelect(t.id)}
+                  therapist={THERAPIST_PERSONAS.ava}
+                  isSelected={true}
+                  isRecommended={true}
+                  onSelect={() => {}}
                 />
-              ))}
+              </div>
             </div>
 
             {/* Feature grid */}

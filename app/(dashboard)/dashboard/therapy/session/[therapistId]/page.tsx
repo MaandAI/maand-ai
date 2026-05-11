@@ -43,7 +43,9 @@ const BTN_OFF =
 export default function VideoSessionPage() {
   const params = useParams();
   const router = useRouter();
-  const therapistId = (params?.therapistId as string) || "ava";
+  // Forcing AVA for now as requested
+  // const therapistId = (params?.therapistId as string) || "ava";
+  const therapistId = "ava";
   const persona = getPersona(therapistId);
   const {
     startSession,

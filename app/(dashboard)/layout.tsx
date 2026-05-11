@@ -9,17 +9,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    /*
-      Layout strategy to eliminate CLS:
-      - Sidebar has a fixed width declared at each breakpoint
-      - Content area uses overflow-y-auto so only the content scrolls
-      - The outer flex never changes width
-    */
     <div className="flex h-screen overflow-hidden bg-background">
       <SessionWatcher />
 
-      {/* Sidebar — rigid, never reflows */}
-      <div className="hidden md:flex md:flex-col md:w-64 shrink-0 border-r border-border/50">
+      {/* Sidebar slot — only occupies space on lg+, matches DashboardSidebar's hidden lg:flex */}
+      <div className=" lg:flex-col lg:w-64 shrink-0 border-r border-border/50">
         <DashboardSidebar />
       </div>
 
@@ -27,7 +21,7 @@ export default function DashboardLayout({
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <DashboardHeader />
 
-        {/* Scrollable content — isolated from sidebar */}
+        {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-6 md:p-8 lg:p-10 max-w-[1600px] mx-auto w-full">
             {children}
