@@ -40,8 +40,8 @@ export function ServicesSection() {
       <div className="text-center mb-12">
         <h2 className="text-3xl md:text-4xl font-bold mb-4">Our Services</h2>
         <p className="text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-          Comprehensive mental health support powered by cutting-edge
-          technology and compassionate, clinically-validated AI.
+          Comprehensive mental health support powered by cutting-edge technology
+          and compassionate, clinically-validated AI.
         </p>
       </div>
 
@@ -96,13 +96,6 @@ export function ServicesSection() {
                 Transparent algorithms with human oversight
               </p>
             </div>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-6">
-              Launching after completion of our comprehensive clinical
-              validation process
-            </p>
-            <CountdownTimer />
           </div>
         </CardContent>
       </Card>

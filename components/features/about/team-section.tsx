@@ -4,19 +4,24 @@ import { SectionWrapper } from "@/components/features/shared/section-wrapper";
 
 const teamMembers = [
   {
+    name: "Muskan Awais",
+    email: "Muskanawais02@gmail.com",
+    role: "UI/UX Designer & Researcher",
+  },
+  {
     name: "Salman Nawaz",
     email: "salmannawaz008@gmail.com",
-    role: "Founder & Lead Developer",
+    role: "Full Stack Developer",
+  },
+  {
+    name: "Hussain",
+    email: "mehussain008@gmail.com",
+    role: "AI Developer",
   },
   {
     name: "Tahir Saad",
     email: "tahirsaad73@gmail.com",
-    role: "Co-Founder & Clinical Advisor",
-  },
-  {
-    name: "Muskan Awais",
-    email: "Muskanawais02@gmail.com",
-    role: "UI/UX Designer & Researcher",
+    role: "Unity Developer & Animator",
   },
 ];
 
@@ -26,16 +31,20 @@ export function TeamSection() {
       <div className="text-center mb-12">
         <h2 className="text-3xl md:text-4xl font-bold mb-4">Our Team</h2>
         <p className="text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-          Meet the dedicated professionals working to revolutionize mental health care through ethical AI and clinical excellence.
+          Meet the dedicated professionals working to revolutionize mental
+          health care through ethical AI and clinical excellence.
         </p>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
+      <div className="grid gap-8 md:grid-cols-4">
         {teamMembers.map((member, index) => (
           <Card key={index} className="border-2 overflow-hidden group bg-card">
             <div className="aspect-square bg-muted relative">
               <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-muted-foreground/20">
-                {member.name.split(" ").map((n) => n[0]).join("")}
+                {member.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </div>
             </div>
             <CardHeader>

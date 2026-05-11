@@ -2,12 +2,11 @@ import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CountdownTimer } from "@/components/features/shared/countdown-timer";
 import { SectionWrapper } from "@/components/features/shared/section-wrapper";
 
 export function HeroSection() {
   return (
-    <SectionWrapper className="relative py-16 md:py-24 overflow-hidden h-full">
+    <SectionWrapper className="relative py-16 md:py-24 overflow-hidden min-h-screen mt-10">
       <div className="flex flex-col items-center text-center gap-6 md:gap-8">
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Badge variant="secondary" className="px-4 py-1">
@@ -39,15 +38,6 @@ export function HeroSection() {
           <Button size="lg" variant="outline" asChild>
             <Link href="/contact">Clinical Research</Link>
           </Button>
-        </div>
-
-        <div className="mt-8 md:mt-10 w-full">
-          <div className="mb-4 md:mb-6 text-center">
-            <h3 className="text-lg font-semibold mb-2">
-              Launching February 26, 2026
-            </h3>
-          </div>
-          <CountdownTimer />
         </div>
       </div>
     </SectionWrapper>

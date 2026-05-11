@@ -7,7 +7,6 @@ import { apiClient } from "@/lib/api-client";
 import { getPersona } from "@/lib/therapist-personas";
 import { useTavusSession } from "@/hooks/use-tavus-session";
 import { useTherapistStore } from "@/lib/store/therapist-store";
-import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { GestureRecognition } from "@/components/therapy/gesture-recognition";
 import type { GestureResult } from "@/utils/gesture-detection";
 import { cn } from "@/lib/utils";
@@ -81,7 +80,8 @@ export default function VideoSessionPage() {
 
   const addTranscript = useCallback((speaker: "user"|"therapist", text: string, isFinal: boolean) => {
     const clean = text.trim();
-    if (!clean) return;
+    const technicalStrings = ["conversation.utterance", "conversation.utterance.streaming"];
+    if (!clean || technicalStrings.includes(clean.toLowerCase())) return;
     if (!isFinal && speaker === "user") {
       setInterimCaption(`You: ${clean}`);
       return;
@@ -97,21 +97,12 @@ export default function VideoSessionPage() {
     saveEntry(speaker, clean);
   }, [persona.name, saveEntry]);
 
-  // ── Browser STT for User Speech ──────────────────────────────────
-  const { toggleListening, stopListening, isListening } = useSpeechRecognition({
-    continuous: true,
-    onResult: useCallback((text: string, isFinal: boolean) => {
-      addTranscript("user", text, isFinal);
-    }, [addTranscript])
-  });
-
   // ── Tavus — meeting engine ─────────────────────────────────────────
   const tavus = useTavusSession({
     onTranscript: useCallback((e) => {
-      // If we receive user speech from Tavus, we can use it, but ignore it if local STT is running
-      if (e.speaker === "user" && isListening) return;
+      // Relying solely on Daily.co/Tavus transcription to avoid microphone conflicts
       addTranscript(e.speaker, e.text, e.isFinal);
-    }, [addTranscript, isListening]),
+    }, [addTranscript]),
   });
 
   // ── Camera/mic init ────────────────────────────────────────────────
@@ -151,19 +142,13 @@ export default function VideoSessionPage() {
       } catch {}
     }
     
-    // Start local STT for user speech
-    if (!isListening) {
-      toggleListening();
-    }
-
     // Tavus is the meeting engine — just join and let it handle conversation
     tavus.initTavusSession(therapistId);
-  }, [therapistId, tavus, isListening, toggleListening]);
+  }, [therapistId, tavus]);
 
   const endSession = useCallback(async () => {
     setPhase("ending");
     clearInterval(timerRef.current);
-    stopListening();
     if (recRef.current?.state !== "inactive") recRef.current?.stop();
     camStream.current?.getTracks().forEach(t => t.stop());
     tavus.endSession();
@@ -184,7 +169,7 @@ export default function VideoSessionPage() {
     setPhase("report");
   }, [tavus, endStoreSession]);
 
-  useEffect(() => { init(); return () => { clearInterval(timerRef.current); stopListening(); tavus.endSession(); endStoreSession(); }; }, []);
+  useEffect(() => { init(); return () => { clearInterval(timerRef.current); tavus.endSession(); endStoreSession(); }; }, []);
 
   // ── Send typed message to Tavus ───────────────────────────────────
   const sendChat = useCallback(() => {
@@ -193,16 +178,36 @@ export default function VideoSessionPage() {
     setChatInput("");
     addTranscript("user", text, true);
     try {
-      tavus.callObject.sendAppMessage({ message_type: "conversation", event_type: "conversation.echo", properties: { text } });
+      tavus.callObject.sendAppMessage({ 
+        message_type: "conversation", 
+        event_type: "conversation.utterance", 
+        properties: { text, role: "user" } 
+      });
     } catch (e) { console.warn("[sendChat]", e); }
   }, [chatInput, tavus.callObject, addTranscript]);
 
-  // ── Gesture handler ───────────────────────────────────────────────
+  // ── Gesture handler — translate into messages ─────────────────────
   const handleGesture = useCallback((r: GestureResult) => {
     if (r.intent !== "None") {
-      setGestureInsights(p => [...p, { meaning: r.intent, gesture: r.label, timestamp: new Date() }]);
+      const timestamp = new Date();
+      setGestureInsights(p => [...p, { meaning: r.intent, gesture: r.label, timestamp }]);
+      
+      // Translate gesture to a user message
+      const gestureMsg = `[Gesture: ${r.label}] — ${r.intent}`;
+      addTranscript("user", gestureMsg, true);
+
+      // Send to Tavus so the AI therapist is aware of the user's non-verbal communication
+      if (tavus.callObject) {
+        try {
+          tavus.callObject.sendAppMessage({ 
+            message_type: "conversation", 
+            event_type: "conversation.utterance", 
+            properties: { text: `(I am performing this gesture: ${r.label}. It means: ${r.intent})`, role: "user" } 
+          });
+        } catch (e) { console.warn("[handleGesture] Send failed", e); }
+      }
     }
-  }, []);
+  }, [addTranscript, tavus.callObject]);
 
   // ── Mic/cam toggle ────────────────────────────────────────────────
   const toggleMic = useCallback(() => {

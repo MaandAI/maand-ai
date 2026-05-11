@@ -58,7 +58,7 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
         if (!el) return false;
         el.srcObject = new MediaStream([track]);
         el.play().catch((e) =>
-          console.warn("[Tavus] video.play() suppressed:", e)
+          console.warn("[Tavus] video.play() suppressed:", e),
         );
         return true;
       };
@@ -89,7 +89,7 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
       if (!clean) return;
       onTranscriptRef.current?.({ speaker, text: clean, isFinal });
     },
-    []
+    [],
   );
 
   // ── Session init ───────────────────────────────────────────────────
@@ -127,7 +127,7 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
 
         // 3. Create Daily call object (Custom UI mode — no iFrame)
         const call = DailyIframe.createCallObject({
-          audioSource: true,  // mic on so Tavus can hear us
+          audioSource: true, // mic on so Tavus can hear us
           videoSource: false, // no need to publish local video to Tavus
         });
         callRef.current = call;
@@ -190,35 +190,33 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
         // Tavus CVI app-message (conversation utterance events)
         call.on("app-message", (e: any) => {
           try {
-            const raw = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
-            console.log("[Tavus] app-message:", JSON.stringify(raw).slice(0, 200));
+            const raw =
+              typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+            console.log("[Tavus] app-message:", JSON.stringify(raw, null, 2));
 
-            // Extract text from any known path
-            let text =
-              raw?.properties?.content ||
-              raw?.properties?.text ||
-              raw?.text ||
-              raw?.message ||
-              raw?.utterance ||
-              raw?.transcript ||
-              raw?.content ||
-              null;
+            const eventType: string = raw?.event_type || "";
 
-            // Aggressive fallback: if we still don't have text, look for any string > 3 chars
-            if (!text && typeof raw === "object") {
-              const possibleValues = Object.values(raw).filter(
-                (v) => typeof v === "string" && v.length > 3 && !v.includes("_") && !v.match(/^[a-z0-9-]+$/i)
-              );
-              if (possibleValues.length > 0) text = possibleValues[0];
-            }
+            // Only handle utterance events
+            if (
+              !eventType.includes("conversation.utterance") &&
+              !eventType.includes("conversation.echo")
+            )
+              return;
 
-            const roleRaw = raw?.properties?.role || raw?.role || "replica";
+            const props = raw?.properties || {};
+            const text: string =
+              props.speech || props.text || props.content || "";
+            if (!text.trim()) return;
+
+            // "replica" = therapist, "user" = user
+            const roleRaw: string = props.role || "replica";
             const speaker: "user" | "therapist" =
               roleRaw === "user" || roleRaw === "human" ? "user" : "therapist";
 
-            if (text && typeof text === "string" && text.trim().length > 0) {
-              fireTranscript(speaker, text.trim(), true);
-            }
+            // Only fire on final utterances to avoid duplicate streaming chunks
+            const isFinal: boolean = props.final ?? true;
+
+            fireTranscript(speaker, text.trim(), isFinal);
           } catch (err) {
             console.error("[Tavus] app-message parse error:", err);
           }
@@ -243,7 +241,7 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
         setErrorMsg(err.message);
       }
     },
-    [status, attachTrack, fireTranscript]
+    [status, attachTrack, fireTranscript],
   );
 
   // ── Session teardown ───────────────────────────────────────────────
@@ -266,7 +264,10 @@ export function useTavusSession(options: UseTavusSessionOptions = {}) {
     return () => {
       const call = callRef.current;
       if (call) {
-        call.leave().catch(() => {}).finally(() => call.destroy());
+        call
+          .leave()
+          .catch(() => {})
+          .finally(() => call.destroy());
         callRef.current = null;
       }
     };
