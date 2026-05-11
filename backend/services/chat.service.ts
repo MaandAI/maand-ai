@@ -181,7 +181,7 @@ export class ChatService {
         e,
       );
       const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-2.5-pro",
+        model: "gemini-1.5-flash",
       });
       const result = await fallbackModel.generateContent(
         `${prompt}\n\nReturn ONLY the JSON.`,
