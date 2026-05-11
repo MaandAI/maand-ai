@@ -71,15 +71,11 @@ export function SignupForm() {
 
       toast({
         title: "Account created",
-        description: "Welcome to Maand! Redirecting to dashboard...",
+        description: "Please check your email for a verification code.",
       });
 
-      // Automatically sign in after registration
-      await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: "/dashboard",
-      });
+      // Redirect to verification page
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       const message = err.message || "Failed to create account";
       setError(message);

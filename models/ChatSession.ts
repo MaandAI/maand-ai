@@ -8,6 +8,7 @@ const ChatSessionSchema = new Schema(
     durationMs: { type: Number, default: 0 },
     status: { type: String, enum: ["active", "completed"], default: "active" },
     reportUrl: { type: String },
+    pdfUrl: { type: String },
     reportId: { type: String },
     isFavorite: { type: Boolean, default: false },
   },

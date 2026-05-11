@@ -74,6 +74,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("No user found with this email");
         }
 
+        if (!user.isEmailVerified) {
+          throw new Error("unverified_email"); // Special error code for frontend to handle
+        }
+
         if (user.status !== "active") {
           throw new Error(`Your account is ${user.status}. Please contact support.`);
         }

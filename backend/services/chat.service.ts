@@ -10,6 +10,7 @@ import {
 } from "../validators/chat.schema";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import cloudinary from "@/lib/cloudinary";
+import { generateClinicalReportPDF } from "@/lib/pdf-generator";
 import { NotificationService } from "./notification.service";
 import { getUserSettings, getUserEmailAndName } from "@/lib/get-user-settings";
 import { sendReportReadyEmail } from "@/lib/email";
@@ -209,6 +210,42 @@ export class ChatService {
       );
     })) as any;
 
+    // 4.1 Generate PDF Report
+    let pdfBuffer: Buffer | undefined;
+    let pdfUrl: string | undefined;
+
+    try {
+      const parsedReportForPdf = JSON.parse(reportContent);
+      pdfBuffer = await generateClinicalReportPDF({
+        title: chatSession.title || "Therapy Session Report",
+        userName: userInfo?.name || "Patient",
+        date: new Date().toLocaleDateString(),
+        summary: parsedReportForPdf.summary,
+        emotionalTrends: parsedReportForPdf.emotional_trends || [],
+        keyTopics: parsedReportForPdf.key_topics || [],
+        recommendations: parsedReportForPdf.recommendations || [],
+        riskAssessment: parsedReportForPdf.risk_assessment || "",
+      });
+
+      // Upload PDF to Cloudinary using base64 for better reliability
+      const pdfBase64 = pdfBuffer.toString("base64");
+      const pdfUploadRes = await cloudinary.uploader.upload(
+        `data:application/pdf;base64,${pdfBase64}`,
+        {
+          resource_type: "auto",
+          access_mode: "public",
+          folder: "maand/reports/pdf",
+          public_id: `report_${sessionId}_pdf`,
+          overwrite: true,
+        }
+      );
+
+      pdfUrl = pdfUploadRes.secure_url;
+      console.log("[ChatService] PDF Uploaded:", pdfUrl);
+    } catch (err) {
+      console.error("[ChatService] PDF generation or upload failed:", err);
+    }
+
     // 5. Create Report in DB
     let createdReport: any = null;
     let parsedReport: any = {};
@@ -226,6 +263,7 @@ export class ChatService {
         recommendations: parsedReport.recommendations,
         riskAssessment: parsedReport.risk_assessment,
         contentUrl: uploadRes.secure_url,
+        pdfUrl: pdfUrl,
         isFavorite: chatSession.isFavorite || false,
         deliveryStatus: "pending",
       });
@@ -236,6 +274,7 @@ export class ChatService {
     // 6. Update Session in DB
     chatSession.status = "completed";
     chatSession.reportUrl = uploadRes.secure_url;
+    chatSession.pdfUrl = pdfUrl; // Add this field if it exists in schema
     chatSession.reportId = uploadRes.public_id;
     await chatSession.save();
 
@@ -259,8 +298,9 @@ export class ChatService {
         userInfo.name,
         chatSession.title || "Your Session",
         createdReport._id.toString(),
-        undefined, // pdfUrl — reserved for future PDF generation
+        pdfUrl,
         parsedReport.summary,
+        pdfBuffer
       )
         .then(async (result) => {
           if (result.success) {

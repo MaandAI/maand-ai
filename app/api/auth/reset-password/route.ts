@@ -1,57 +1,71 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { sendSecurityAlertEmail } from "@/lib/email";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { token, newPassword } = await req.json();
+    const { token, password } = await req.json();
 
-    if (!token || !newPassword) {
-      return NextResponse.json({ error: "Token and new password are required" }, { status: 400 });
-    }
-
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
-    }
-
-    await dbConnect();
-
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: new Date() },
-    }).select("+resetPasswordToken +resetPasswordExpires");
-
-    if (!user) {
+    if (!token || !password) {
       return NextResponse.json(
-        { error: "Invalid or expired reset token. Please request a new one." },
+        { error: "Token and password are required" },
         { status: 400 }
       );
     }
 
-    const hashed = await bcrypt.hash(newPassword, 12);
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters long" },
+        { status: 400 }
+      );
+    }
 
-    await User.findByIdAndUpdate(user._id, {
-      $set: {
-        password: hashed,
-        authVersion: (user.authVersion || 0) + 1, // Invalidate all active sessions
-      },
-      $unset: {
-        resetPasswordToken: "",
-        resetPasswordExpires: "",
-      },
-    });
+    await dbConnect();
 
-    // Send security notification
+    // Hash the token from the URL to compare with stored hash
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).select("+password");
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid or expired reset token" },
+        { status: 400 }
+      );
+    }
+
+    // Update password
+    const hashedPassword = await bcrypt.hash(password, 12);
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    
+    // Increment authVersion to invalidate current sessions
+    user.authVersion = (user.authVersion || 0) + 1;
+    
+    await user.save();
+
+    // Send security alert
     await sendSecurityAlertEmail(user.email, user.name, "password_changed");
 
     return NextResponse.json({
       success: true,
-      message: "Password has been reset successfully. You can now sign in.",
+      message: "Password has been reset successfully.",
     });
   } catch (error: any) {
-    console.error("[Reset Password]", error?.message);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("[Reset Password API Error]", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

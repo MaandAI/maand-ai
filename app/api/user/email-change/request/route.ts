@@ -54,23 +54,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "New email is the same as your current email." }, { status: 400 });
     }
 
-    // Generate verification token
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await User.findByIdAndUpdate(userId, {
       $set: {
         pendingEmail: normalizedEmail,
-        emailChangeToken: token,
-        emailChangeTokenExpiry: expiry,
+        emailChangeOTP: otp,
+        emailChangeOTPExpiry: expiry,
       },
     });
 
-    await sendEmailVerificationEmail(normalizedEmail, user.name, token);
+    await sendEmailVerificationEmail(normalizedEmail, user.name, otp);
 
     return NextResponse.json({
       success: true,
-      message: `A verification link has been sent to ${normalizedEmail}. Please check your inbox.`,
+      message: `A verification code has been sent to ${normalizedEmail}. Please check your inbox.`,
     });
   } catch (error: any) {
     console.error("[Email Change Request]", error?.message);

@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import crypto from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
 
@@ -13,35 +13,39 @@ export async function POST(req: Request) {
     }
 
     await dbConnect();
-    const user = await User.findOne({ email: email.toLowerCase() });
 
-    // Always respond with success to prevent email enumeration
+    const user = await User.findOne({ email });
+
     if (!user) {
+      // Return success even if user not found for security (prevent email enumeration)
       return NextResponse.json({
-        success: true,
-        message: "If an account with that email exists, a reset link has been sent.",
+        message: "If an account exists with that email, a reset link has been sent.",
       });
     }
 
-    // Generate a secure token
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
 
-    await User.findByIdAndUpdate(user._id, {
-      $set: {
-        resetPasswordToken: token,
-        resetPasswordExpires: expires,
-      },
-    });
+    // Save to user
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    await user.save();
 
-    await sendPasswordResetEmail(user.email, user.name, token);
+    // Send email
+    await sendPasswordResetEmail(user.email, user.name, resetToken);
 
     return NextResponse.json({
-      success: true,
-      message: "If an account with that email exists, a reset link has been sent.",
+      message: "If an account exists with that email, a reset link has been sent.",
     });
   } catch (error: any) {
-    console.error("[Forgot Password]", error?.message);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("[Forgot Password API Error]", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

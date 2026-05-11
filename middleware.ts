@@ -15,6 +15,9 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/contact") ||
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
+    path.startsWith("/forgot-password") ||
+    path.startsWith("/reset-password") ||
+    path.startsWith("/verify-email") ||
     path.startsWith("/api/modules"); // Specifically requested public modules endpoint
 
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");

@@ -1,9 +1,4 @@
-/**
- * Centralised email service for Maand.
- * Uses Resend as the primary transport provider.
- * Falls back to console logging in development when RESEND_API_KEY is absent.
- */
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { welcomeEmailTemplate } from "./templates/welcome";
 import { passwordResetEmailTemplate } from "./templates/password-reset";
 import {
@@ -14,16 +9,18 @@ import { securityAlertTemplate } from "./templates/security-alert";
 import { reportReadyEmailTemplate } from "./templates/report-ready";
 import { therapistApprovedTemplate } from "./templates/therapist-approved";
 
-const FROM_ADDRESS =
-  process.env.EMAIL_FROM || "Maand <noreply@maand.tech>";
+const FROM_ADDRESS = process.env.EMAIL_FROM || "Maand <noreply@maand.tech>";
 
-let resend: Resend | null = null;
-function getResend(): Resend {
-  if (!resend) {
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
-}
+// Create Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 interface SendResult {
   success: boolean;
@@ -41,9 +38,9 @@ async function sendEmail({
   html: string;
 }): Promise<SendResult> {
   // Dev mode without credentials → log only
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     const toStr = Array.isArray(to) ? to.join(", ") : to;
-    console.log("─── [EMAIL] Dev Mock ──────────────────────────────────");
+    console.log("─── [EMAIL] Dev Mock (No SMTP Credentials) ──────────");
     console.log(`  To:      ${toStr}`);
     console.log(`  Subject: ${subject}`);
     console.log("──────────────────────────────────────────────────────");
@@ -51,21 +48,16 @@ async function sendEmail({
   }
 
   try {
-    const result = await getResend().emails.send({
+    const info = await transporter.sendMail({
       from: FROM_ADDRESS,
-      to: Array.isArray(to) ? to : [to],
+      to: Array.isArray(to) ? to.join(", ") : to,
       subject,
       html,
     });
 
-    if (result.error) {
-      console.error("[Email Service] Resend error:", result.error);
-      return { success: false, error: result.error.message };
-    }
-
-    return { success: true, id: result.data?.id };
+    return { success: true, id: info.messageId };
   } catch (err: any) {
-    console.error("[Email Service] Unexpected error:", err?.message ?? err);
+    console.error("[Email Service] SMTP error:", err?.message ?? err);
     return { success: false, error: err?.message ?? "Unknown error" };
   }
 }
@@ -99,15 +91,14 @@ export async function sendPasswordResetEmail(
 }
 
 export async function sendEmailVerificationEmail(
-  newEmail: string,
+  email: string,
   name: string,
-  verificationToken: string
+  otp: string
 ): Promise<SendResult> {
-  const verifyUrl = `${process.env.NEXTAUTH_URL}/api/user/email-change/confirm?token=${verificationToken}`;
   return sendEmail({
-    to: newEmail,
-    subject: "Verify your new Maand email address",
-    html: emailVerificationTemplate({ name, verifyUrl, newEmail }),
+    to: email,
+    subject: `Your Maand verification code: ${otp}`,
+    html: emailVerificationTemplate({ name, otp, email }),
   });
 }
 
@@ -148,13 +139,20 @@ export async function sendReportReadyEmail(
   sessionTitle: string,
   reportId: string,
   pdfUrl?: string,
-  summary?: string
+  summary?: string,
+  pdfBuffer?: Buffer
 ): Promise<SendResult> {
   const reportUrl = `${process.env.NEXTAUTH_URL}/dashboard/reports?id=${reportId}`;
   return sendEmail({
     to: email,
     subject: "Your Maand session report is ready 📄",
     html: reportReadyEmailTemplate({ name, sessionTitle, reportUrl, pdfUrl, summary }),
+    attachments: pdfBuffer ? [
+      {
+        filename: `Maand_Report_${sessionTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+        content: pdfBuffer,
+      }
+    ] : undefined
   });
 }
 

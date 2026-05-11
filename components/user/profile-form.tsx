@@ -31,7 +31,14 @@ import {
   Phone,
   Mail,
   Lock,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUserStore } from "@/lib/store/user-store";
@@ -61,6 +68,8 @@ export function ProfileForm() {
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
   const [emailChangeError, setEmailChangeError] = useState("");
   const [emailChangeSent, setEmailChangeSent] = useState(false);
+  const [emailChangeOtp, setEmailChangeOtp] = useState("");
+  const [emailVerifyLoading, setEmailVerifyLoading] = useState(false);
 
   useEffect(() => {
     if (session?.user) {
@@ -211,6 +220,35 @@ export function ProfileForm() {
       setEmailChangeError("An unexpected error occurred. Please try again.");
     } finally {
       setEmailChangeLoading(false);
+    }
+  };
+
+  const handleEmailChangeVerify = async (otpValue?: string) => {
+    const finalOtp = otpValue || emailChangeOtp;
+    if (finalOtp.length !== 6) return;
+
+    setEmailChangeError("");
+    setEmailVerifyLoading(true);
+
+    try {
+      const res = await fetch("/api/user/email-change/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: finalOtp }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setEmailChangeError(data.error || "Verification failed.");
+      } else {
+        toast({ title: "Email updated", description: "Your email address has been successfully changed." });
+        await update({ email: emailForm.newEmail });
+        setShowEmailModal(false);
+      }
+    } catch {
+      setEmailChangeError("An unexpected error occurred.");
+    } finally {
+      setEmailVerifyLoading(false);
     }
   };
 
@@ -412,23 +450,64 @@ export function ProfileForm() {
           </DialogHeader>
 
           {emailChangeSent ? (
-            <div className="py-6 text-center space-y-3">
+            <div className="py-6 text-center space-y-6">
               <div className="h-12 w-12 bg-emerald-100 dark:bg-emerald-900 rounded-full flex items-center justify-center mx-auto">
-                <Mail className="h-6 w-6 text-emerald-600" />
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
               </div>
-              <p className="font-bold text-sm">Verification email sent!</p>
-              <p className="text-xs text-muted-foreground">
-                Check <strong>{emailForm.newEmail}</strong> and click the link to confirm your new
-                email address.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 rounded-xl"
-                onClick={() => setShowEmailModal(false)}
-              >
-                Close
-              </Button>
+              <div className="space-y-2">
+                <p className="font-bold text-sm">Verification code sent!</p>
+                <p className="text-xs text-muted-foreground px-4">
+                  Enter the 6-digit code we sent to <strong>{emailForm.newEmail}</strong>.
+                </p>
+              </div>
+
+              {emailChangeError && (
+                <Alert variant="destructive" className="text-left">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">{emailChangeError}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  value={emailChangeOtp}
+                  onChange={(v) => {
+                    setEmailChangeOtp(v);
+                    if (v.length === 6) handleEmailChangeVerify(v);
+                  }}
+                  disabled={emailVerifyLoading}
+                >
+                  <InputOTPGroup className="gap-2">
+                    <InputOTPSlot index={0} className="rounded-lg h-10 w-9 font-bold" />
+                    <InputOTPSlot index={1} className="rounded-lg h-10 w-9 font-bold" />
+                    <InputOTPSlot index={2} className="rounded-lg h-10 w-9 font-bold" />
+                    <InputOTPSlot index={3} className="rounded-lg h-10 w-9 font-bold" />
+                    <InputOTPSlot index={4} className="rounded-lg h-10 w-9 font-bold" />
+                    <InputOTPSlot index={5} className="rounded-lg h-10 w-9 font-bold" />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  className="w-full rounded-xl font-bold"
+                  onClick={() => handleEmailChangeVerify()}
+                  disabled={emailVerifyLoading || emailChangeOtp.length !== 6}
+                >
+                  {emailVerifyLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  {emailVerifyLoading ? "Verifying..." : "Confirm Email Change"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-primary"
+                  onClick={() => setEmailChangeSent(false)}
+                  disabled={emailVerifyLoading}
+                >
+                  Back to request
+                </Button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleEmailChangeRequest} className="space-y-4">

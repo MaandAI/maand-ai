@@ -42,6 +42,15 @@ export function LoginForm() {
       });
 
       if (result?.error) {
+        if (result.error === "unverified_email") {
+          toast({
+            title: "Email not verified",
+            description: "Please verify your email to continue.",
+          });
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          return;
+        }
+
         setError(result.error);
         toast({
           title: "Login failed",

@@ -1,29 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import { sendEmailChangeNotification } from "@/lib/email";
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const token = searchParams.get("token");
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!token) {
-      return NextResponse.redirect(
-        new URL("/login?error=invalid_token", process.env.NEXTAUTH_URL!)
-      );
+    const { otp } = await req.json();
+
+    if (!otp) {
+      return NextResponse.json({ error: "Verification code is required" }, { status: 400 });
     }
 
     await dbConnect();
-    const user = await User.findOne({
-      emailChangeToken: token,
-      emailChangeTokenExpiry: { $gt: new Date() },
-    }).select("+emailChangeToken +emailChangeTokenExpiry +pendingEmail");
+    const userId = (session.user as any).id;
+
+    const user = await User.findById(userId).select("+emailChangeOTP +emailChangeOTPExpiry +pendingEmail");
 
     if (!user || !user.pendingEmail) {
-      return NextResponse.redirect(
-        new URL("/login?error=expired_token", process.env.NEXTAUTH_URL!)
-      );
+      return NextResponse.json({ error: "No pending email change found" }, { status: 400 });
+    }
+
+    if (user.emailChangeOTP !== otp || user.emailChangeOTPExpiry < new Date()) {
+      return NextResponse.json({ error: "Invalid or expired verification code" }, { status: 400 });
     }
 
     const oldEmail = user.email;
@@ -32,39 +37,32 @@ export async function GET(req: NextRequest) {
     // Check the new email isn't taken by another account
     const conflict = await User.findOne({ email: newEmail, _id: { $ne: user._id } });
     if (conflict) {
-      await User.findByIdAndUpdate(user._id, {
-        $unset: { pendingEmail: "", emailChangeToken: "", emailChangeTokenExpiry: "" },
-      });
-      return NextResponse.redirect(
-        new URL("/dashboard/profile?error=email_taken", process.env.NEXTAUTH_URL!)
-      );
+      user.pendingEmail = undefined;
+      user.emailChangeOTP = undefined;
+      user.emailChangeOTPExpiry = undefined;
+      await user.save();
+      return NextResponse.json({ error: "That email address is already in use by another account." }, { status: 400 });
     }
 
     // Apply the email change
-    await User.findByIdAndUpdate(user._id, {
-      $set: {
-        email: newEmail,
-        isEmailVerified: true,
-        authVersion: (user.authVersion || 0) + 1, // Invalidate other sessions
-      },
-      $unset: {
-        pendingEmail: "",
-        emailChangeToken: "",
-        emailChangeTokenExpiry: "",
-      },
-    });
+    user.email = newEmail;
+    user.isEmailVerified = true;
+    user.pendingEmail = undefined;
+    user.emailChangeOTP = undefined;
+    user.emailChangeOTPExpiry = undefined;
+    user.authVersion = (user.authVersion || 0) + 1; // Invalidate other sessions
+    
+    await user.save();
 
     // Notify old address
     await sendEmailChangeNotification(oldEmail, user.name, newEmail);
 
-    // Redirect to profile with success
-    return NextResponse.redirect(
-      new URL("/dashboard/profile?success=email_changed", process.env.NEXTAUTH_URL!)
-    );
+    return NextResponse.json({
+      success: true,
+      message: "Email address updated successfully.",
+    });
   } catch (error: any) {
     console.error("[Email Change Confirm]", error?.message);
-    return NextResponse.redirect(
-      new URL("/login?error=server_error", process.env.NEXTAUTH_URL!)
-    );
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

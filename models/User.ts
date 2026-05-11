@@ -50,14 +50,15 @@ const UserSchema = new Schema(
     
     // Verification & Recovery
     isEmailVerified: { type: Boolean, default: false },
-    emailVerificationToken: { type: String, select: false },
+    emailVerificationOTP: { type: String },
+    emailVerificationExpires: { type: Date },
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
 
     // Email Change Flow
     pendingEmail: { type: String, select: false },
-    emailChangeToken: { type: String, select: false },
-    emailChangeTokenExpiry: { type: Date, select: false },
+    emailChangeOTP: { type: String, select: false },
+    emailChangeOTPExpiry: { type: Date, select: false },
     
     // Auth Versioning (for global logout)
     authVersion: { type: Number, default: 0 },

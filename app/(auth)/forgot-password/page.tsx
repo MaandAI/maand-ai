@@ -13,14 +13,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AlertCircle, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, ArrowLeft, Loader2, Mail } from "lucide-react";
+import axios from "axios";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,21 +29,10 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Something went wrong. Please try again.");
-      } else {
-        setIsSubmitted(true);
-      }
-    } catch {
-      setError("Failed to send request. Please check your connection.");
+      await axios.post("/api/auth/forgot-password", { email });
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to send reset email. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -60,69 +50,62 @@ export default function ForgotPasswordPage() {
       </div>
 
       <Card>
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Reset your password</CardTitle>
+        <CardHeader className="space-y-1 pt-8">
+          <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
           <CardDescription>
-            {isSubmitted
-              ? "Check your inbox for a reset link"
-              : "Enter your email and we'll send you a reset link"}
+            Enter your email address and we'll send you a link to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isSubmitted ? (
-            <Alert className="border-primary/50 bg-primary/10">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              <AlertDescription>
-                If an account exists for <strong>{email}</strong>, a password reset link has been
-                sent. Please check your inbox (and spam folder).
-              </AlertDescription>
-            </Alert>
+          {success ? (
+            <div className="space-y-4 py-4">
+              <Alert className="border-emerald-500/20 bg-emerald-500/5 text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>
+                  Check your inbox! If an account exists for {email}, you will receive a reset link shortly.
+                </AlertDescription>
+              </Alert>
+              <Button asChild className="w-full h-11 rounded-xl font-bold">
+                <Link href="/login">Return to Sign In</Link>
+              </Button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
+
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="pl-10"
-                  />
-                </div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-11 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
                 {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                {isLoading ? "Sending reset link..." : "Send reset link"}
+                {isLoading ? "Sending Link..." : "Send Reset Link"}
               </Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button variant="ghost" asChild className="w-full">
-            <Link href="/login">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to login
-            </Link>
-          </Button>
-          {!isSubmitted && (
-            <div className="text-sm text-muted-foreground text-center">
-              {"Don't have an account? "}
-              <Link href="/signup" className="text-primary hover:underline font-medium">
-                Sign up
-              </Link>
-            </div>
-          )}
+        <CardFooter className="pb-8">
+          <Link
+            href="/login"
+            className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center justify-center w-full gap-2 font-medium"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Sign In
+          </Link>
         </CardFooter>
       </Card>
     </div>
