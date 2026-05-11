@@ -1,26 +1,31 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionWrapper } from "@/components/features/shared/section-wrapper";
+import Image from "next/image";
 
 const teamMembers = [
   {
     name: "Muskan Awais",
-    email: "Muskanawais02@gmail.com",
-    role: "UI/UX Designer & Researcher",
+    email: "muskanawais02@gmail.com",
+    img: "/muskan.jpeg",
+    role: "AI/ML Engineer",
   },
   {
     name: "Salman Nawaz",
     email: "salmannawaz008@gmail.com",
+    img: "/salman.jpg",
     role: "Full Stack Developer",
   },
   {
-    name: "Hussain",
-    email: "mehussain008@gmail.com",
-    role: "AI Developer",
+    name: "Hussain Ali",
+    email: "mee.hussainali@gmail.com",
+    img: "/hussain.jpg",
+    role: "Sign Language & Gesture Recognition",
   },
   {
     name: "Tahir Saad",
     email: "tahirsaad73@gmail.com",
+    img: "/saad.png",
     role: "Unity Developer & Animator",
   },
 ];
@@ -40,12 +45,21 @@ export function TeamSection() {
         {teamMembers.map((member, index) => (
           <Card key={index} className="border-2 overflow-hidden group bg-card">
             <div className="aspect-square bg-muted relative">
-              <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-muted-foreground/20">
-                {member.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </div>
+              {member.img ? (
+                <Image
+                  src={member.img}
+                  alt={member.name}
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-muted-foreground/20">
+                  {member.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </div>
+              )}
             </div>
             <CardHeader>
               <CardTitle>{member.name}</CardTitle>
