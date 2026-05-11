@@ -53,7 +53,7 @@ ETHICS DIRECTIVE: You MUST ONLY discuss the Allowed Topics. If the user asks abo
 
     // 3. Query LLM
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: systemPrompt,
     });
 

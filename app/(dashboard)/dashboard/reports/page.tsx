@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -25,66 +26,97 @@ import {
   AlertTriangle,
   CheckCircle2,
   Star,
-  History,
 } from "lucide-react";
 import { format } from "date-fns";
 import { apiClient } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogScrollArea,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Link from "next/link";
 import { DownloadPDFButton } from "@/components/reports/download-pdf-button";
 import { useAuth } from "@/hooks/useAuth";
 
-export default function ReportsPage() {
+function ReportsPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { profile } = useAuth();
+
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { profile } = useAuth();
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // ── Fetch all reports ──
   const fetchReports = async () => {
     setLoading(true);
     try {
       const res = await apiClient.get("/reports");
-      setReports(res.data.data);
+      return res.data.data as any[];
     } catch (err) {
       console.error("Failed to fetch reports", err);
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
+  // ── On mount: load reports, then open the highlighted one if ?report= is set ──
   useEffect(() => {
-    fetchReports();
+    const highlightId =
+      searchParams.get("report") || searchParams.get("highlight");
+    fetchReports().then((data) => {
+      setReports(data);
+      if (highlightId) {
+        const target = data.find((r) => r._id === highlightId);
+        if (target) {
+          setSelectedReport(target);
+          setIsModalOpen(true);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Sync modal open/close to ?report= query param ──
   const openReport = (report: any) => {
     setSelectedReport(report);
     setIsModalOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.set("report", report._id);
+    router.replace(url.pathname + url.search, { scroll: false });
   };
 
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedReport(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("report");
+    url.searchParams.delete("highlight");
+    router.replace(url.pathname + url.search, { scroll: false });
+  };
+
+  // ── Favorite toggle ──
   const toggleFavorite = async (e: React.MouseEvent, report: any) => {
     e.stopPropagation();
     try {
       const newStatus = !report.isFavorite;
       const res = await apiClient.patch(`/reports/${report._id}/favorite`, {
-        isFavorite: newStatus
+        isFavorite: newStatus,
       });
       if (res.data.success) {
-        setReports(prev => prev.map(r => r._id === report._id ? { ...r, isFavorite: newStatus } : r));
+        setReports((prev) =>
+          prev.map((r) =>
+            r._id === report._id ? { ...r, isFavorite: newStatus } : r,
+          ),
+        );
         if (selectedReport?._id === report._id) {
-          setSelectedReport({ ...selectedReport, isFavorite: newStatus });
+          setSelectedReport((prev: any) => ({
+            ...prev,
+            isFavorite: newStatus,
+          }));
         }
       }
     } catch (err) {
@@ -92,15 +124,17 @@ export default function ReportsPage() {
     }
   };
 
-  const filteredReports = reports.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         r.summary.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredReports = reports.filter((r) => {
+    const matchesSearch =
+      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.summary.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filter === "all" || r.isFavorite;
     return matchesSearch && matchesFilter;
   });
 
   return (
     <div className="space-y-8 pb-10">
+      {/* ── Page header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -114,22 +148,24 @@ export default function ReportsPage() {
         <div className="flex items-center gap-3 bg-muted/30 p-1 rounded-2xl border border-primary/5">
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input 
+            <input
               type="text"
               placeholder="Search reports..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-sm pl-9 pr-4 py-2 w-48 md:w-64"
+              className="bg-transparent border-none outline-none focus:ring-0 text-sm pl-9 pr-4 py-2 w-48 md:w-64"
             />
           </div>
-          <div className="flex gap-1 h-full">
+          <div className="flex gap-1">
             <Button
               variant={filter === "all" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => setFilter("all")}
               className={cn(
                 "rounded-xl text-[10px] font-bold uppercase tracking-widest px-4 h-9",
-                filter === "all" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
+                filter === "all"
+                  ? "bg-background shadow-sm text-primary"
+                  : "text-muted-foreground",
               )}
             >
               All
@@ -140,16 +176,24 @@ export default function ReportsPage() {
               onClick={() => setFilter("favorites")}
               className={cn(
                 "rounded-xl text-[10px] font-bold uppercase tracking-widest px-4 h-9 flex items-center gap-2",
-                filter === "favorites" ? "bg-background shadow-sm text-amber-500" : "text-muted-foreground"
+                filter === "favorites"
+                  ? "bg-background shadow-sm text-amber-500"
+                  : "text-muted-foreground",
               )}
             >
-              <Star className={cn("h-3 w-3", filter === "favorites" && "fill-amber-500")} />
+              <Star
+                className={cn(
+                  "h-3 w-3",
+                  filter === "favorites" && "fill-amber-500",
+                )}
+              />
               Saved
             </Button>
           </div>
         </div>
       </div>
 
+      {/* ── Report cards grid ── */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           [1, 2, 3].map((i) => (
@@ -161,16 +205,23 @@ export default function ReportsPage() {
               key={report._id}
               className="group border-none shadow-sm hover:shadow-md transition-all duration-300 bg-card/50 backdrop-blur-sm overflow-hidden flex flex-col relative"
             >
-               <Button
+              <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
                   "absolute top-4 right-4 z-10 rounded-full h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
-                  report.isFavorite ? "opacity-100 text-amber-500 bg-amber-500/10" : "bg-background/50 backdrop-blur-sm"
+                  report.isFavorite
+                    ? "opacity-100 text-amber-500 bg-amber-500/10"
+                    : "bg-background/50 backdrop-blur-sm",
                 )}
                 onClick={(e) => toggleFavorite(e, report)}
               >
-                <Star className={cn("h-4 w-4", report.isFavorite && "fill-amber-500")} />
+                <Star
+                  className={cn(
+                    "h-4 w-4",
+                    report.isFavorite && "fill-amber-500",
+                  )}
+                />
               </Button>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-2">
@@ -252,13 +303,16 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden border-none shadow-2xl">
+      {/* ── Report detail modal ── */}
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="max-w-3xl w-full p-0 gap-0 overflow-hidden border-none shadow-2xl bg-background/95 backdrop-blur-xl">
           {selectedReport && (
-            <div className="flex flex-col h-full bg-background/95 backdrop-blur-xl">
-              <div className="p-8 border-b bg-primary/5">
-                <div className="flex items-center justify-between gap-3 text-primary font-bold text-xs uppercase tracking-widest mb-2">
-                  <div className="flex items-center gap-3">
+            // Fixed-height flex column: header pinned top, footer pinned bottom, only middle scrolls
+            <div className="flex flex-col h-[85vh]">
+              {/* ── Modal header (pinned) ── */}
+              <div className="shrink-0 px-8 pt-8 pb-6 border-b bg-primary/5">
+                <div className="flex items-center justify-between gap-3 text-primary font-bold text-xs uppercase tracking-widest mb-3">
+                  <div className="flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4" />
                     Clinical Evaluation
                   </div>
@@ -266,53 +320,61 @@ export default function ReportsPage() {
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "rounded-full gap-2 px-3",
-                      selectedReport.isFavorite ? "text-amber-500 bg-amber-500/10" : "text-muted-foreground"
+                      "rounded-full gap-2 px-3 h-8",
+                      selectedReport.isFavorite
+                        ? "text-amber-500 bg-amber-500/10"
+                        : "text-muted-foreground",
                     )}
                     onClick={(e) => toggleFavorite(e, selectedReport)}
                   >
-                    <Star className={cn("h-4 w-4", selectedReport.isFavorite && "fill-amber-500")} />
+                    <Star
+                      className={cn(
+                        "h-4 w-4",
+                        selectedReport.isFavorite && "fill-amber-500",
+                      )}
+                    />
                     {selectedReport.isFavorite ? "Saved" : "Save to Portfolio"}
                   </Button>
                 </div>
-                <DialogTitle className="text-3xl font-extrabold mb-1">
+                <DialogTitle className="text-2xl font-extrabold leading-tight mb-2">
                   {selectedReport.title}
                 </DialogTitle>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />{" "}
+                    <Calendar className="h-3.5 w-3.5" />
                     {format(new Date(selectedReport.createdAt), "PPPP")}
                   </span>
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 p-8">
-                <div className="space-y-10 pb-10">
-                  {/* Summary Section */}
+              {/* ── Scrollable body (only this region scrolls) ── */}
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="px-8 py-8 space-y-10">
+                  {/* Summary */}
                   <section className="space-y-4">
                     <div className="flex items-center gap-2 text-lg font-bold">
                       <BrainCircuit className="h-5 w-5 text-primary" />
                       Executive Summary
                     </div>
-                    <p className="text-muted-foreground leading-relaxed text-lg italic bg-muted/30 p-6 rounded-2xl border">
+                    <p className="text-muted-foreground leading-relaxed text-base italic bg-muted/30 p-6 rounded-2xl border">
                       "{selectedReport.summary}"
                     </p>
                   </section>
 
-                  <div className="grid md:grid-cols-2 gap-8">
+                  <div className="grid md:grid-cols-1 gap-8 ">
                     {/* Key Topics */}
                     <section className="space-y-4">
-                      <div className="flex items-center gap-2 text-md font-bold text-primary/80">
+                      <div className="flex items-center gap-2 font-bold text-primary/80">
                         <MessageSquare className="h-4 w-4" />
                         Key Topics Discussed
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-col gap-2">
                         {selectedReport.keyTopics?.map(
                           (topic: string, i: number) => (
                             <Badge
                               key={i}
                               variant="outline"
-                              className="px-3 py-1 border-primary/20 bg-primary/5"
+                              className="w-full px-3 py-2 border-primary/20 bg-primary/5 whitespace-normal break-words text-left"
                             >
                               {topic}
                             </Badge>
@@ -321,9 +383,9 @@ export default function ReportsPage() {
                       </div>
                     </section>
 
-                    {/* Emotional Trends */}
+                    {/* Emotional Patterns */}
                     <section className="space-y-4">
-                      <div className="flex items-center gap-2 text-md font-bold text-amber-500">
+                      <div className="flex items-center gap-2 font-bold text-amber-500">
                         <TrendingUp className="h-4 w-4" />
                         Emotional Patterns
                       </div>
@@ -334,7 +396,7 @@ export default function ReportsPage() {
                               key={i}
                               className="flex items-center gap-3 text-sm text-muted-foreground"
                             >
-                              <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
                               {trend}
                             </li>
                           ),
@@ -356,7 +418,7 @@ export default function ReportsPage() {
                             key={i}
                             className="flex items-start gap-4 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10"
                           >
-                            <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5" />
+                            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />
                             <p className="text-sm leading-relaxed">{rec}</p>
                           </div>
                         ),
@@ -371,7 +433,7 @@ export default function ReportsPage() {
                         <AlertTriangle className="h-5 w-5" />
                         Clinical Observations & Risk
                       </div>
-                      <p className="text-sm text-muted-foreground bg-red-500/5 border border-red-500/10 p-4 rounded-xl">
+                      <p className="text-sm text-muted-foreground bg-red-500/5 border border-red-500/10 p-4 rounded-xl leading-relaxed">
                         {selectedReport.riskAssessment}
                       </p>
                     </section>
@@ -379,24 +441,27 @@ export default function ReportsPage() {
                 </div>
               </ScrollArea>
 
-              <div className="p-4 border-t bg-muted/20 flex flex-wrap justify-end gap-3">
+              {/* ── Modal footer (pinned) ── */}
+              <div className="shrink-0 px-6 py-4 border-t bg-muted/20 flex flex-wrap items-center justify-end gap-3">
                 <Button
                   variant="outline"
                   className="rounded-lg"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeModal}
                 >
-                  Close Portfolio
+                  Close
                 </Button>
-                <Button
-                  variant="secondary"
-                  className="rounded-lg gap-2"
-                  onClick={() =>
-                    window.open(selectedReport.contentUrl, "_blank")
-                  }
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  JSON
-                </Button>
+                {selectedReport.contentUrl && (
+                  <Button
+                    variant="secondary"
+                    className="rounded-lg gap-2"
+                    onClick={() =>
+                      window.open(selectedReport.contentUrl, "_blank")
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    JSON
+                  </Button>
+                )}
                 <DownloadPDFButton
                   report={selectedReport}
                   user={profile}
@@ -408,5 +473,27 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-8 pb-10">
+          <div className="flex flex-col gap-2">
+            <div className="h-9 w-64 bg-muted/40 rounded-xl animate-pulse" />
+            <div className="h-4 w-96 bg-muted/30 rounded-lg animate-pulse" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ReportsPageInner />
+    </Suspense>
   );
 }

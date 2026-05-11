@@ -802,8 +802,8 @@ function TherapyChatInner() {
                       setTimeout(() => {
                         router.push(
                           reportId
-                            ? `/dashboard/clinical-reports?highlight=${reportId}`
-                            : "/dashboard/clinical-reports",
+                            ? `/dashboard/reports?report=${reportId}`
+                            : "/dashboard/reports",
                         );
                       }, 1200);
                     } catch (err: any) {

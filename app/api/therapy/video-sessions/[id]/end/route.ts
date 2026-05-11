@@ -19,7 +19,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 // POST /api/therapy/video-sessions/[id]/end
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   return withAuth(req, async (req, user) => {
     try {
@@ -28,17 +28,23 @@ export async function POST(
 
       const session = await VideoSession.findOne({ _id: id, userId: user.id });
       if (!session) {
-        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 },
+        );
       }
 
       const endedAt = new Date();
       const durationSeconds = Math.floor(
-        (endedAt.getTime() - new Date(session.startedAt).getTime()) / 1000
+        (endedAt.getTime() - new Date(session.startedAt).getTime()) / 1000,
       );
 
       // Build transcript text for analysis
       const transcriptText = session.transcript
-        .map((e: any) => `${e.speaker === "user" ? "Client" : session.therapistName}: ${e.text}`)
+        .map(
+          (e: any) =>
+            `${e.speaker === "user" ? "Client" : session.therapistName}: ${e.text}`,
+        )
         .join("\n");
 
       // Read body safely
@@ -48,10 +54,14 @@ export async function POST(
         if (body?.gestureInsights) clientGestureInsights = body.gestureInsights;
       } catch {}
 
-      const allGestures = [...(session.gestureInsights || []), ...clientGestureInsights];
+      const allGestures = [
+        ...(session.gestureInsights || []),
+        ...clientGestureInsights,
+      ];
       const gestureText =
-        allGestures.map((g: any) => `- ${g.meaning} (${g.gesture})`).join("\n") ||
-        "No gestures recorded.";
+        allGestures
+          .map((g: any) => `- ${g.meaning} (${g.gesture})`)
+          .join("\n") || "No gestures recorded.";
 
       // ── Generate session notes via Gemini ──────────────────────
       let sessionNotes = "";
@@ -88,7 +98,10 @@ Respond in exactly this JSON format:
         try {
           const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
           // 30-second timeout for Gemini
-          const result = await withTimeout(model.generateContent(prompt), 30_000);
+          const result = await withTimeout(
+            model.generateContent(prompt),
+            30_000,
+          );
           if (result) {
             const raw = result.response.text();
             const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -109,7 +122,10 @@ Respond in exactly this JSON format:
         if (!sessionNotes) {
           sessionNotes = `Session with ${session.therapistName} lasting ${Math.floor(durationSeconds / 60)} minutes. ${session.transcript.length} exchanges recorded.`;
           keyTopics = session.emotionalJourney?.slice(0, 5) || [];
-          recommendations = ["Continue regular therapy sessions", "Practice coping strategies discussed"];
+          recommendations = [
+            "Continue regular therapy sessions",
+            "Practice coping strategies discussed",
+          ];
           emotionalSummary = "Session completed successfully.";
         }
       } else {
@@ -140,14 +156,17 @@ Respond in exactly this JSON format:
             (error, result) => {
               if (error) reject(error);
               else resolve((result as any).secure_url);
-            }
+            },
           );
         });
 
         const uploadResult = await withTimeout(uploadPromise, 10_000);
         if (uploadResult) contentUrl = uploadResult;
       } catch (e) {
-        console.warn("[VideoSession END] Cloudinary upload failed (non-blocking):", e);
+        console.warn(
+          "[VideoSession END] Cloudinary upload failed (non-blocking):",
+          e,
+        );
         // Continue — report is still created without a content URL
       }
 
