@@ -25,7 +25,7 @@ import {
 } from "recharts";
 
 function AdminOverviewContent() {
-  const { overview, activity, revenue, loading } = useDashboardAPI();
+  const { overview, activity, revenue, loading, error, refresh } = useDashboardAPI();
 
   const stats = overview
     ? [
@@ -71,35 +71,54 @@ function AdminOverviewContent() {
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {loading
-          ? [1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))
-          : stats.map((stat, index) => (
-              <Card key={index}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {stat.label}
-                  </CardTitle>
-                  <stat.icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <span
-                      className={
-                        stat.changeType === "positive"
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }
-                    >
-                      {stat.change}
-                    </span>{" "}
-                    from last month
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+        {loading ? (
+          [1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32 w-full" />)
+        ) : error ? (
+          <div className="col-span-full py-12 text-center border-2 border-dashed border-destructive/20 rounded-xl bg-destructive/5">
+            <Activity className="h-10 w-10 text-destructive/40 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-destructive">Error Loading Statistics</h3>
+            <p className="text-muted-foreground text-sm mb-4">{error}</p>
+            <button 
+              onClick={() => refresh()}
+              className="text-xs font-bold uppercase tracking-widest bg-destructive text-white px-4 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : stats.length === 0 ? (
+          <div className="col-span-full py-12 text-center border-2 border-dashed border-primary/20 rounded-xl bg-primary/5">
+            <Activity className="h-10 w-10 text-primary/40 mx-auto mb-4" />
+            <h3 className="text-lg font-bold">No Statistics Found</h3>
+            <p className="text-muted-foreground text-sm mb-4">The platform analytics haven't been generated yet.</p>
+            <p className="text-xs text-muted-foreground">Tip: Run "npm run seed" to populate the database with initial analytics data.</p>
+          </div>
+        ) : (
+          stats.map((stat, index) => (
+            <Card key={index}>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {stat.label}
+                </CardTitle>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <span
+                    className={
+                      stat.changeType === "positive"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }
+                  >
+                    {stat.change}
+                  </span>{" "}
+                  from last month
+                </p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts */}

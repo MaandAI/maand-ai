@@ -116,19 +116,23 @@ function AIChatSession({ stage, moduleSlug, onComplete }: { stage: any; moduleSl
     setMessages((m) => [...m, { role: "user", content: userMsg }]);
     setSending(true);
     try {
-      const res = await apiClient.post("/therapy/chat", {
+      const res = await apiClient.post("/modules/chat", {
         message: userMsg,
-        context: `Module: ${moduleSlug}, Stage: ${stage.title}`,
+        moduleSlug,
+        stageTitle: stage.title,
+        stageDescription: stage.description,
+        history: messages,
       });
-      const reply = res.data?.message || "Thank you for sharing that. Let's continue exploring this together.";
+      const reply = res.data?.reply || "Thank you for sharing that. Let's continue exploring this together.";
+      const isComplete = res.data?.isComplete || false;
+      
       setMessages((m) => [...m, { role: "assistant", content: reply }]);
-      if (messages.length >= 3) setReady(true);
+      if (isComplete) setReady(true);
     } catch {
       setMessages((m) => [...m, {
         role: "assistant",
-        content: "I'm reflecting on what you've shared. This is a meaningful step in your journey.",
+        content: "I'm reflecting on what you've shared. Could you elaborate a bit more on how that relates to this stage's purpose?",
       }]);
-      if (messages.length >= 3) setReady(true);
     } finally {
       setSending(false);
     }
