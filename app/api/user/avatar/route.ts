@@ -5,7 +5,6 @@ import cloudinary from "@/lib/cloudinary";
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 
-export const config = { api: { bodyParser: false } };
 
 export async function POST(req: NextRequest) {
   try {
