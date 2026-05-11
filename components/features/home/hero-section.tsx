@@ -6,7 +6,10 @@ import { SectionWrapper } from "@/components/features/shared/section-wrapper";
 
 export function HeroSection() {
   return (
-    <SectionWrapper className="relative py-16 md:py-24 overflow-hidden min-h-screen mt-10">
+    <SectionWrapper
+      className="relative py-16 md:py-24 overflow-hidden min-h-screen mt-10"
+      backgroundColor="transparent"
+    >
       <div className="flex flex-col items-center text-center gap-6 md:gap-8">
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Badge variant="secondary" className="px-4 py-1">

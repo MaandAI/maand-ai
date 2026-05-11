@@ -6,7 +6,12 @@ interface SectionWrapperProps {
   className?: string;
   id?: string;
   containerClassName?: string;
-  backgroundColor?: "default" | "muted" | "primary" | "secondary";
+  backgroundColor?:
+    | "default"
+    | "muted"
+    | "primary"
+    | "secondary"
+    | "transparent";
 }
 
 export function SectionWrapper({
@@ -21,18 +26,20 @@ export function SectionWrapper({
     muted: "bg-muted/30",
     primary: "bg-primary text-primary-foreground",
     secondary: "bg-secondary/10",
+    transparent: "bg-transparent",
   };
 
   return (
     <section
       id={id}
-      className={cn(
-        "py-16 md:py-24",
-        bgStyles[backgroundColor],
-        className
-      )}
+      className={cn("py-16 md:py-24", bgStyles[backgroundColor], className)}
     >
-      <div className={cn("container max-w-7xl px-4 md:px-6 mx-auto", containerClassName)}>
+      <div
+        className={cn(
+          "container max-w-7xl px-4 md:px-6 mx-auto",
+          containerClassName,
+        )}
+      >
         {children}
       </div>
     </section>
