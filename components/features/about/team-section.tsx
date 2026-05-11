@@ -7,7 +7,7 @@ const teamMembers = [
   {
     name: "Muskan Awais",
     email: "muskanawais02@gmail.com",
-    img: "/muskan.jpeg",
+    img: "/muskan.jpg",
     role: "AI/ML Engineer",
   },
   {

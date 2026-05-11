@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // Define public routes (Marketing & Auth)
-  const isPublicRoute = 
+  const isPublicRoute =
     path === "/" ||
     path.startsWith("/about") ||
     path.startsWith("/pricing") ||
@@ -18,9 +18,12 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/api/modules"); // Specifically requested public modules endpoint
 
   const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
-  const isAdminPage = path.startsWith("/admin") || path.startsWith("/api/admin");
-  const isTherapistPage = path.startsWith("/therapist") || path.startsWith("/api/therapist");
-  const isDashboardPage = path.startsWith("/dashboard") || path.startsWith("/api/chat");
+  const isAdminPage =
+    path.startsWith("/admin") || path.startsWith("/api/admin");
+  const isTherapistPage =
+    path.startsWith("/therapist") || path.startsWith("/api/therapist");
+  const isDashboardPage =
+    path.startsWith("/dashboard") || path.startsWith("/api/chat");
 
   // 1. Redirect unauthenticated users from protected routes
   if (!token && !isPublicRoute) {
@@ -31,11 +34,16 @@ export async function middleware(req: NextRequest) {
   }
 
   // 2. 2FA Enforcement: If 2FA is required, redirect to 2FA verification page
-  if (token && (token as any).requires2FA && path !== "/auth/2fa" && !path.startsWith("/api/auth")) {
-     // Allow logout during 2FA
-     if (path !== "/api/auth/signout") {
-       return NextResponse.redirect(new URL("/auth/2fa", req.url));
-     }
+  if (
+    token &&
+    (token as any).requires2FA &&
+    path !== "/auth/2fa" &&
+    !path.startsWith("/api/auth")
+  ) {
+    // Allow logout during 2FA
+    if (path !== "/api/auth/signout") {
+      return NextResponse.redirect(new URL("/auth/2fa", req.url));
+    }
   }
 
   // 3. Redirect authenticated users away from auth pages
@@ -53,7 +61,12 @@ export async function middleware(req: NextRequest) {
   }
 
   // 5. RBAC: Therapist and Admin can access /therapist
-  if (token && isTherapistPage && token.role !== "therapist" && token.role !== "admin") {
+  if (
+    token &&
+    isTherapistPage &&
+    token.role !== "therapist" &&
+    token.role !== "admin"
+  ) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -65,14 +78,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth endpoints)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public (public assets)
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp)$).*)",
   ],
 };
