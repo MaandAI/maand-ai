@@ -98,6 +98,29 @@ export async function POST(req: NextRequest) {
       console.warn("HF Emotion detection failed, defaulting to neutral", e);
     }
 
+    // 2.5. RAG Context Retrieval — inject relevant therapy knowledge before Gemini
+    let ragContext = "";
+    if (!hasCrisis) {
+      try {
+        const { getRelevantContext } = await import("@/services/rag/ragService");
+        const ragResult = await getRelevantContext(message);
+        if (ragResult.chunks.length > 0) {
+          ragContext = ragResult.chunks
+            .map((c) => `[${c.category.toUpperCase()}] ${c.title}:\n${c.content}`)
+            .join("\n\n");
+          console.log(
+            `[RAG] Triggered — retrieved ${ragResult.chunks.length}/${ragResult.totalDocsSearched} docs ` +
+            `(query embedding: ${ragResult.queryEmbeddingMs}ms, ` +
+            `top similarity: ${ragResult.chunks[0].similarity.toFixed(3)})`
+          );
+        } else {
+          console.log("[RAG] No relevant context found above threshold — proceeding without RAG");
+        }
+      } catch (ragErr) {
+        console.warn("[RAG] Retrieval step failed, continuing without context:", ragErr);
+      }
+    }
+
     // 3. Save User Message FIRST — before any AI call that might throw
     await ChatService.saveMessage(userId, {
       sessionId,
@@ -112,11 +135,16 @@ export async function POST(req: NextRequest) {
       aiResponseContent =
         "I am noticing some very difficult feelings here. I am an AI and cannot provide crisis support. Please contact the National Suicide Prevention Lifeline at 988 immediately.";
     } else {
-      const systemPrompt = `You are an empathetic, clinical-grade AI therapy assistant. 
+      // Build RAG context block (injected only when relevant docs were retrieved)
+      const ragContextBlock = ragContext
+        ? `\n\nUse the following evidence-based context to guide your response where relevant:\n${ragContext}`
+        : "";
+
+      const systemPrompt = `You are an empathetic, clinical-grade AI therapy assistant.
 ${moduleName ? `The user is currently engaging with the "${moduleName}" module. Tailor your empathy and guidance toward this focus.` : ""}
 Persona guidelines: ${persona?.description || "Calm, gentle, supportive, and reflective."}
 The user's detected emotional state right now is: ${emotion}.
-Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.`;
+Respond warmly, briefly (2-3 sentences max), and safely. Validate their emotion. Do not give medical advice or diagnoses.${ragContextBlock}`;
 
       try {
         try {

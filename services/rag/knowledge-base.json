@@ -1,0 +1,168 @@
+{
+  "version": "1.0.0",
+  "description": "Maand AI Therapy Knowledge Base — used for RAG-augmented responses",
+  "documents": [
+    {
+      "id": "faq-001",
+      "category": "faq",
+      "title": "What is anxiety?",
+      "content": "Anxiety is a natural stress response characterized by feelings of worry, nervousness, or unease about an uncertain outcome. Common symptoms include a racing heart, shortness of breath, muscle tension, difficulty concentrating, and sleep disturbances. Anxiety becomes a concern when it is persistent, overwhelming, and interferes with daily life. Conditions like Generalized Anxiety Disorder (GAD), panic disorder, and social anxiety are clinical forms that benefit from professional support."
+    },
+    {
+      "id": "faq-002",
+      "category": "faq",
+      "title": "What is depression?",
+      "content": "Depression is a mood disorder that causes persistent feelings of sadness, hopelessness, and loss of interest in activities once enjoyed. It can affect how you feel, think, and handle daily activities such as eating, sleeping, and working. Depression is not a sign of weakness; it is a medical condition. Symptoms can include fatigue, changes in appetite or sleep, difficulty concentrating, and in severe cases, thoughts of self-harm. It is highly treatable with therapy, medication, or a combination of both."
+    },
+    {
+      "id": "faq-003",
+      "category": "faq",
+      "title": "What is the difference between stress and anxiety?",
+      "content": "Stress is typically caused by an external trigger — a deadline, a conflict, or a life change — and resolves once the situation does. Anxiety, on the other hand, persists even when the stressor is absent and often involves excessive worry about future events. Both can cause similar physical symptoms, but anxiety tends to be more internal and self-perpetuating. Learning to identify your trigger can help you apply the right coping strategy."
+    },
+    {
+      "id": "faq-004",
+      "category": "faq",
+      "title": "When should someone seek professional help?",
+      "content": "You should consider speaking with a mental health professional when: your emotions are overwhelming and interfere with daily life, you experience prolonged sadness or anxiety lasting more than two weeks, you have thoughts of self-harm or harming others, you are using substances to cope, or you feel unable to manage on your own. Seeking help is a sign of strength, not weakness. Therapists, psychologists, and psychiatrists are trained to provide the support you need."
+    },
+    {
+      "id": "faq-005",
+      "category": "faq",
+      "title": "What is cognitive behavioral therapy (CBT)?",
+      "content": "Cognitive Behavioral Therapy (CBT) is one of the most evidence-based forms of psychotherapy. It focuses on the connection between thoughts, feelings, and behaviors. CBT helps you identify negative or distorted thinking patterns and replace them with more balanced, realistic thoughts. It is highly effective for anxiety, depression, OCD, PTSD, and many other mental health conditions. CBT is structured, goal-oriented, and typically short-term."
+    },
+    {
+      "id": "faq-006",
+      "category": "faq",
+      "title": "What is mindfulness and how does it help?",
+      "content": "Mindfulness is the practice of paying intentional, non-judgmental attention to the present moment. It involves observing your thoughts and feelings without reacting to them automatically. Research shows mindfulness reduces symptoms of anxiety, depression, and chronic pain. It can lower cortisol (stress hormone) levels and improve emotional regulation. Common mindfulness practices include meditation, mindful breathing, and body scans."
+    },
+    {
+      "id": "cope-001",
+      "category": "coping_techniques",
+      "title": "Box Breathing (4-4-4-4)",
+      "content": "Box breathing is a calming technique used to reduce stress and anxiety quickly. Steps: Inhale slowly through your nose for 4 counts. Hold your breath for 4 counts. Exhale slowly through your mouth for 4 counts. Hold for 4 counts before the next breath. Repeat 4–6 times. This technique activates the parasympathetic nervous system, slowing your heart rate and calming the body's fight-or-flight response. It is used by athletes, military personnel, and therapists alike."
+    },
+    {
+      "id": "cope-002",
+      "category": "coping_techniques",
+      "title": "5-4-3-2-1 Grounding Technique",
+      "content": "The 5-4-3-2-1 technique uses your five senses to anchor you to the present moment during anxiety or dissociation. Steps: Name 5 things you can see around you. Name 4 things you can physically feel (your clothes, the chair, the floor). Name 3 things you can hear right now. Name 2 things you can smell. Name 1 thing you can taste. This interrupts anxious thought cycles and brings you back to the present, reducing the intensity of panic or overwhelm."
+    },
+    {
+      "id": "cope-003",
+      "category": "coping_techniques",
+      "title": "Progressive Muscle Relaxation (PMR)",
+      "content": "Progressive Muscle Relaxation is a technique that involves tensing and then releasing different muscle groups to reduce physical tension associated with stress. Start at your feet and work upward: tense each muscle group for 5 seconds, then release for 30 seconds and notice the difference. Move through your calves, thighs, abdomen, arms, shoulders, and face. PMR is highly effective for anxiety, insomnia, and chronic tension headaches, and can be done in 10–20 minutes."
+    },
+    {
+      "id": "cope-004",
+      "category": "coping_techniques",
+      "title": "Journaling for Emotional Processing",
+      "content": "Expressive journaling involves writing freely about your thoughts and emotions without censorship. Research by Dr. James Pennebaker shows that writing about distressing experiences for 15–20 minutes a day can reduce stress, improve mood, and even strengthen immune function. Try prompts like: 'What am I feeling right now and why?', 'What would I tell a friend in this situation?', or 'What is one thing within my control today?'. Journaling creates distance between you and your emotions, making them easier to process."
+    },
+    {
+      "id": "cope-005",
+      "category": "coping_techniques",
+      "title": "Cognitive Reframing",
+      "content": "Cognitive reframing is the practice of consciously shifting your perspective on a situation. Instead of accepting your first, often negative interpretation, you question it and look for alternative, more balanced views. Ask yourself: Is this thought based on facts or assumptions? What is the worst, best, and most likely outcome? What would I tell a friend who had this thought? What evidence contradicts this belief? Reframing does not mean ignoring problems — it means responding to them more accurately and helpfully."
+    },
+    {
+      "id": "cope-006",
+      "category": "coping_techniques",
+      "title": "Safe Place Visualization",
+      "content": "Visualization is a guided imagery technique where you mentally create and visit a safe, peaceful place. Close your eyes and imagine a location that feels completely safe and calm — a beach, forest, cozy room, or anywhere meaningful to you. Engage all your senses: What do you see, hear, smell, feel? Spend 5–10 minutes there. This technique is especially helpful for trauma responses, panic attacks, and acute distress. It gives your nervous system a 'safe signal' even when reality feels overwhelming."
+    },
+    {
+      "id": "cope-007",
+      "category": "coping_techniques",
+      "title": "Physical Exercise as a Coping Strategy",
+      "content": "Physical exercise is one of the most evidence-based interventions for mental health. Even 20–30 minutes of moderate exercise (walking, swimming, cycling) releases endorphins, reduces cortisol, and improves sleep quality. Studies show exercise is as effective as antidepressants for mild to moderate depression. It also reduces social anxiety and builds self-efficacy. You do not need an intense workout — a brisk walk outside can significantly improve your mood within minutes."
+    },
+    {
+      "id": "tip-001",
+      "category": "mental_health_tips",
+      "title": "Improving Sleep for Mental Health",
+      "content": "Sleep and mental health are deeply interconnected. Poor sleep worsens anxiety, depression, and emotional regulation. Evidence-based sleep hygiene practices: Go to bed and wake up at the same time every day, even on weekends. Avoid screens (blue light) for 1 hour before bed. Keep your bedroom cool, dark, and quiet. Avoid caffeine after 2 PM. Use your bed only for sleep and intimacy — not for working or watching TV. If you cannot sleep after 20 minutes, get up and do a quiet activity until sleepy."
+    },
+    {
+      "id": "tip-002",
+      "category": "mental_health_tips",
+      "title": "Building a Daily Routine for Stability",
+      "content": "A predictable daily routine reduces anxiety by creating a sense of control and structure. Structure your day with anchor points: a consistent wake time, meals at regular intervals, dedicated work/study blocks, movement, and a wind-down routine before bed. Routines reduce decision fatigue (the mental cost of making choices) and free up cognitive resources for meaningful activities. Even a loose structure during difficult times can provide a stabilizing sense of progress."
+    },
+    {
+      "id": "tip-003",
+      "category": "mental_health_tips",
+      "title": "Social Connection and Mental Wellbeing",
+      "content": "Humans are inherently social beings, and loneliness is a significant risk factor for depression and anxiety. Research shows that meaningful social connections are one of the strongest predictors of mental wellbeing and even physical health and longevity. Tips: Reach out to one person today — even a brief text counts. Join a group around a shared interest. Volunteer in your community. Quality matters more than quantity: one deep connection is more protective than many surface-level ones."
+    },
+    {
+      "id": "tip-004",
+      "category": "mental_health_tips",
+      "title": "Nutrition and Mental Health",
+      "content": "The gut-brain connection is well-established in modern neuroscience. What you eat affects your mood, energy, and cognitive function. A diet rich in whole foods — vegetables, fruits, whole grains, legumes, lean proteins, and healthy fats — supports optimal brain function. Key nutrients: Omega-3 fatty acids (fatty fish, walnuts) reduce inflammation linked to depression. Magnesium (leafy greens, nuts) supports nervous system function. Limit processed sugar, which causes mood crashes. Stay hydrated — even mild dehydration can cause irritability and poor concentration."
+    },
+    {
+      "id": "tip-005",
+      "category": "mental_health_tips",
+      "title": "Setting Healthy Boundaries",
+      "content": "Healthy boundaries are limits you set to protect your emotional, physical, and mental wellbeing. They communicate what you are and are not okay with. Without boundaries, we risk resentment, burnout, and emotional exhaustion. How to start: Identify what feels draining or uncomfortable in your relationships. Use 'I' statements to communicate your needs ('I need some time alone to recharge'). Remember that saying no to others is sometimes saying yes to yourself. Boundaries are not walls — they are bridges to healthier relationships."
+    },
+    {
+      "id": "tip-006",
+      "category": "mental_health_tips",
+      "title": "Reducing Smartphone and Social Media Use",
+      "content": "Excessive social media use is linked to increased anxiety, depression, and poor self-image, particularly among young adults. Social media platforms are designed to maximize engagement through comparison, outrage, and variable reward — all of which stress the nervous system. Strategies: Set screen time limits using your phone's built-in tools. Designate phone-free times (meals, first hour of morning, before bed). Curate your feed to include uplifting, educational content. Practice single-tasking instead of multitasking with devices."
+    },
+    {
+      "id": "tip-007",
+      "category": "mental_health_tips",
+      "title": "Practicing Gratitude",
+      "content": "Gratitude practice involves intentionally noticing and appreciating the positive aspects of life, even small ones. Neuroscience research shows that regular gratitude practice rewires the brain over time to notice positive experiences more readily (neuroplasticity). How to practice: Write 3 specific things you are grateful for each morning or evening. Be specific ('I am grateful my friend texted me today') rather than general ('I am grateful for my family'). The more specific and sensory the better — it activates emotional memory networks more deeply."
+    },
+    {
+      "id": "guide-001",
+      "category": "conversation_guidelines",
+      "title": "Active Listening in Therapeutic Conversations",
+      "content": "Active listening is the foundation of any therapeutic relationship. It means giving your full, undivided attention to the person speaking and making them feel heard without judgment. Key principles: Reflect back what you hear ('It sounds like you are feeling overwhelmed by…'). Avoid immediately offering advice — validate first. Use open-ended questions ('Tell me more about that...'). Resist the urge to fix the problem immediately. Silence is okay — allow space for the person to think and feel."
+    },
+    {
+      "id": "guide-002",
+      "category": "conversation_guidelines",
+      "title": "Validating Emotions Without Judgment",
+      "content": "Emotional validation means acknowledging that a person's feelings are understandable and legitimate given their experience — even if you would feel differently. Validation is not agreement; it is empathy. Phrases that validate: 'That sounds incredibly difficult.' 'It makes complete sense that you would feel that way.' 'Your feelings are valid.' 'I can understand why that would be upsetting.' Avoid invalidating phrases like 'At least...', 'Just think positive', or 'Others have it worse'. These dismiss the person's experience."
+    },
+    {
+      "id": "guide-003",
+      "category": "conversation_guidelines",
+      "title": "Responding to Grief and Loss",
+      "content": "Grief is the natural response to any significant loss — a loved one, a relationship, a job, or a life chapter. There is no right or wrong way to grieve. The Kübler-Ross stages (denial, anger, bargaining, depression, acceptance) are not linear — grief is non-linear and deeply personal. How to support someone grieving: Do not try to minimize or rush the process. Be present without needing to say the 'right' thing. Ask what kind of support they need. Acknowledge specific losses ('losing your father after 30 years together is devastating'). Check in over time — grief does not end quickly."
+    },
+    {
+      "id": "guide-004",
+      "category": "conversation_guidelines",
+      "title": "Talking About Trauma Sensitively",
+      "content": "Trauma-informed communication means approaching someone who has experienced trauma with sensitivity, respect, and an understanding that trauma affects how people perceive safety, trust, and control. Principles: Never pressure someone to share details they are not ready to share. Believe the person's account without questioning or minimizing. Avoid 'why' questions which can feel accusatory. Emphasize their agency and choice. Watch for trauma responses (hypervigilance, dissociation, shutdown) and slow down or pause if needed. Normalize professional support."
+    },
+    {
+      "id": "guide-005",
+      "category": "conversation_guidelines",
+      "title": "Encouraging Help-Seeking Behavior",
+      "content": "Many people resist seeking mental health support due to stigma, shame, cost, or uncertainty about what to expect. To encourage someone to seek help: Normalize therapy ('Many people find it helpful, even without a crisis'). Offer to help research options or accompany them if appropriate. Avoid pressure — plant a seed without demanding action. Share your own experience if relevant and appropriate. Acknowledge their courage in considering it. Remind them that asking for help is a strength, not a weakness. Professional support can be life-changing."
+    },
+    {
+      "id": "guide-006",
+      "category": "conversation_guidelines",
+      "title": "Responding to Someone Expressing Hopelessness",
+      "content": "When someone expresses hopelessness ('What's the point?', 'Nothing will ever get better'), it requires careful, compassionate engagement. Do: Stay calm and take their feelings seriously. Ask directly and gently if they are having thoughts of self-harm ('Are you having thoughts of hurting yourself?'). Listen without panic or over-reaction. Express care ('I'm glad you're talking to me about this'). Encourage professional support and provide crisis resources if needed. Do not: Argue about whether things will get better. Minimize ('You have so much to live for'). Promise everything will be fine."
+    },
+    {
+      "id": "guide-007",
+      "category": "conversation_guidelines",
+      "title": "Building Therapeutic Rapport",
+      "content": "Therapeutic rapport is the trusting, collaborative relationship between a helper and the person seeking support. It is the single most important predictor of positive therapeutic outcomes. Rapport is built through: Consistency and reliability (showing up, following through). Genuine empathy and warmth without judgment. Respecting autonomy and not imposing values. Being honest about limitations and scope. Celebrating small wins and progress. Acknowledging setbacks without blame. People need to feel safe before they can be vulnerable, and safety is built through repeated experiences of being heard and respected."
+    }
+  ]
+}
