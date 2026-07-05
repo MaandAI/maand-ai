@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "node init && next build",
+    "dev": "node init && next dev",
     "lint": "eslint .",
     "seed": "node --env-file=.env.local --import tsx scripts/seed.ts",
-    "start": "next start"
+    "start": "node init && next start"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.89.1",

@@ -1,6 +1,6 @@
-﻿# 🌙 Maand — AI-Powered Mental Health Platform
+# 🌙 Maand — AI-Powered Mental Health Platform
 
-> **Maand** is a full-stack, clinical-grade AI mental health web application built with Next.js 16. It combines real-time emotion detection, RAG-enhanced AI therapy chat, structured therapy modules, avatar-based sessions, immersive grounding exercises, video therapy sessions, and a comprehensive admin/therapist management system.
+> **Maand** is a full-stack, clinical-grade AI mental health web application built with Next.js 16. It combines real-time emotion detection, RAG-enhanced AI therapy chat, structured therapy modules, avatar-based sessions, immersive grounding exercises, video therapy sessions, and a comprehensive admin management system.
 
 ---
 
@@ -15,7 +15,7 @@
 - [Database Seeding](#-database-seeding)
 - [User Roles & Access Control](#-user-roles--access-control)
 - [Core Functionalities](#-core-functionalities)
-  - [AI Chat (RAG + Gemini)](#1-ai-chat-rag--gemini)
+  - [AI Chat (RAG + AI)](#1-ai-chat-rag--ai)
   - [Emotion Detection](#2-emotion-detection)
   - [Therapy Modules](#3-therapy-modules)
   - [Avatar Customization](#4-avatar-customization)
@@ -42,7 +42,7 @@
 | **Styling** | Tailwind CSS 4 + Radix UI + shadcn/ui |
 | **Database** | MongoDB (via Mongoose) |
 | **Authentication** | NextAuth.js v4 (Credentials + Google OAuth) |
-| **AI — Generative** | Google Gemini 2.5 Flash / 2.0 Flash (fallback) |
+| **AI — Generative** | Google Generative AI (via Google AI Studio) |
 | **AI — Embeddings** | HuggingFace sentence-transformers/all-MiniLM-L6-v2 |
 | **AI — Emotion** | HuggingFace SamLowe/roberta-base-go_emotions |
 | **AI — Vision** | MediaPipe Tasks (face landmark & gesture recognition) |
@@ -70,7 +70,7 @@
 - 📄 **Downloadable PDF Reports** (mental health outcome scores)
 - 🔔 **Real-time Notifications**
 - 🛡️ **Crisis Detection** with emergency escalation
-- 👤 **Multi-role System** (User, Therapist, Admin)
+- 👤 **Multi-role System** (User, Admin)
 - 🔐 **Two-Factor Authentication (2FA)**
 - 📝 **Audit Logging** for security compliance
 - 🧬 **Legacy Profile** — a digital well-being legacy journal
@@ -191,7 +191,7 @@ CLOUDINARY_API_KEY="your_api_key"
 CLOUDINARY_API_SECRET="your_api_secret"
 
 # AI APIs
-GEMINI_API_KEY="your_gemini_api_key_here"
+AI_API_KEY="your_generative_ai_api_key_here"
 HUGGINGFACE_API_KEY="your_huggingface_api_key_here"
 
 # Security & Encryption
@@ -202,7 +202,7 @@ ENCRYPTION_KEY="64_char_hex_key: openssl rand -hex 32"
 
 | Service | URL |
 |---|---|
-| Google Gemini | https://aistudio.google.com/apikey |
+| Google AI Studio (Generative AI) | https://aistudio.google.com/apikey |
 | HuggingFace | https://huggingface.co/settings/tokens |
 | Google OAuth | https://console.cloud.google.com/apis/credentials |
 | MongoDB Atlas | https://cloud.mongodb.com |
@@ -267,12 +267,11 @@ The seed script populates the database with demo data including users, therapy m
 npm run seed
 ```
 
-This creates three demo accounts:
+This creates two demo accounts:
 
 | Role | Email | Password |
 |---|---|---|
 | **Admin** | `admin@maand.tech` | `password123` |
-| **Therapist** | `therapist@maand.tech` | `password123` |
 | **User** | `user@maand.tech` | `password123` |
 
 ---
@@ -285,7 +284,6 @@ Maand implements **Role-Based Access Control (RBAC)** enforced at the middleware
 |---|---|
 | **Guest** | `/`, `/about`, `/pricing`, `/modules`, `/contact`, `/login`, `/signup` |
 | **User** | `/dashboard/**` — all patient-facing features |
-| **Therapist** | `/dashboard/**` + `/therapist/**` — patient oversight |
 | **Admin** | `/admin/**` + all above — full platform management |
 
 - Unauthenticated users are redirected to `/login`
@@ -296,7 +294,7 @@ Maand implements **Role-Based Access Control (RBAC)** enforced at the middleware
 
 ## 🧩 Core Functionalities
 
-### 1. AI Chat (RAG + Gemini)
+### 1. AI Chat (RAG + AI)
 
 **Route:** `POST /api/chat`
 
@@ -306,7 +304,7 @@ The AI chat system is a multi-stage pipeline:
 2. **Crisis Detection** — keyword scanning; if detected, returns an emergency helpline message and logs an audit event instead of calling AI
 3. **Emotion Detection** — the user's message is classified using HuggingFace's `roberta-base-go_emotions` model (28 emotion classes)
 4. **RAG Retrieval** — the message is embedded using `sentence-transformers/all-MiniLM-L6-v2` and compared (cosine similarity) against a local therapy knowledge base. Relevant chunks (similarity >= 0.3) are injected into the system prompt
-5. **Gemini Response** — Google Gemini 2.5 Flash generates an empathetic, clinically-aware response. Falls back to Gemini 2.0 Flash if the primary model fails
+5. **AI Response** — a generative AI model produces an empathetic, clinically-aware response, with automatic fallback if the primary model fails
 6. **Message Persistence** — both the user message (with emotion tag) and the AI response are saved to MongoDB
 7. **Session Tracking** — session duration is updated on every exchange
 
@@ -326,7 +324,7 @@ The AI chat system is a multi-stage pipeline:
 Every user message sent to the AI chat is automatically analyzed using HuggingFace's `SamLowe/roberta-base-go_emotions` model. The detected emotion (e.g., `joy`, `sadness`, `anger`, `fear`, `neutral`) is:
 
 - Stored with the message in the database
-- Passed to Gemini as context ("The user's detected emotional state right now is: <emotion>")
+- Passed to the AI as context so it can tailor its response to the user's emotional state
 - Used to generate mood trend charts in the dashboard
 
 ---
@@ -380,12 +378,11 @@ A set of guided, interactive mental wellness exercises:
 
 **Route:** `/dashboard/therapy/video`
 
-Live video sessions with therapists powered by **Daily.co**:
+Live video sessions powered by **Daily.co**:
 
 - Create, schedule, and join video rooms
 - Session duration tracking
 - Session history and recordings linked to therapy progress
-- Therapist can view all their scheduled sessions
 
 ---
 
@@ -421,7 +418,7 @@ Users can generate and download their mental health outcome reports:
 **Route:** `/dashboard/notifications`
 
 - In-app notification center
-- Notifications for session reminders, module completions, therapist messages, and system alerts
+- Notifications for session reminders, module completions, and system alerts
 - Mark as read / dismiss
 - Real-time badge count in the nav
 
@@ -435,14 +432,8 @@ Users can generate and download their mental health outcome reports:
 |---|---|
 | **Overview** | Platform KPIs (total users, active sessions, module stats) |
 | **User Management** | View, filter, activate/deactivate user accounts |
-| **Therapist Management** | Approve/reject therapist onboarding requests |
 | **Analytics** | Platform usage trends, session analytics |
 | **Settings** | System-wide configuration |
-
-**Therapist Onboarding:**
-- Therapists sign up via `/therapist-onboarding` form
-- Requests stored in `TherapistRequest` model
-- Admin approves/rejects from the therapist management panel
 
 ---
 
@@ -489,7 +480,6 @@ A digital well-being journal / legacy profile where users can write personal ref
 | `GET/POST` | `/api/video-sessions` | Video session management | User |
 | `GET` | `/api/users` | List all users | Admin |
 | `GET/POST` | `/api/admin/**` | Admin management APIs | Admin |
-| `GET/POST` | `/api/therapist/**` | Therapist APIs | Therapist/Admin |
 | `GET` | `/api/health` | Health check | No |
 
 ---
